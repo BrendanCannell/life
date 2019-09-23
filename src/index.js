@@ -4,6 +4,12 @@ import './index.css';
 import App from './App';
 import * as serviceWorker from './serviceWorker';
 
+window.addEventListener('resize', () => {
+  let {innerWidth, innerHeight} = window
+  let {clientWidth, clientHeight} = document.documentElement
+  console.log({innerHeight, clientHeight})
+})
+
 ReactDOM.render(<App />, document.getElementById('root'));
 
 // If you want your app to work offline and load faster, you can change

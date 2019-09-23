@@ -1,0 +1,10 @@
+<svg viewBox="-0.5 -0.5 4 4" xmlns="http://www.w3.org/2000/svg">
+  <!-- background -->
+  <rect x="-0.5" y="-0.5" width="4" height="4" style="fill: white" />
+  <!-- live cells -->
+  <rect x="1" y="0" width="1" height="1" style="fill: blue" />
+  <rect x="2" y="1" width="1" height="1" style="fill: blue" />
+  <rect x="0" y="2" width="1" height="1" style="fill: blue" />
+  <rect x="1" y="2" width="1" height="1" style="fill: blue" />
+  <rect x="2" y="2" width="1" height="1" style="fill: blue" />
+</svg>
