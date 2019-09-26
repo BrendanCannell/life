@@ -1,27 +1,25 @@
-import React from 'react'
+import React, {forwardRef} from 'react'
 
 // A canvas with fixed dimensions and a `onFrame` function that will be called on each animation frame with the canvas's imageData and the frame's timestamp
-export default function AnimatedCanvas(props) {
-  let {onFrame} = props
+export default forwardRef(function AnimatedCanvas(props, ref) {
+  let {onFrame, ...canvasProps} = props
     , dpr = window.devicePixelRatio || 1
     , pendingRequest = null
-  return (
-    <div style={{width: '100%', height: '100%'}}>
-      <canvas ref={withCanvas} ></canvas>
-    </div>
-  )
+  return <canvas ref={withCanvas} {...canvasProps} ></canvas>
 
   function withCanvas(canvas) {
-    if (!canvas) {
-      cancelRequest()
-      return
+    if (ref) {
+      if (typeof ref === 'function')
+        ref(canvas)
+      else
+        ref.current = canvas
     }
+    if (!canvas) { cancelRequest(); return }
     let context = canvas.getContext('2d')
       , imageData = null
       , currentLogicalWidth = null
       , currentLogicalHeight = null
     makeRequest()
-    return
 
     function makeRequest() {
       pendingRequest = window.requestAnimationFrame(animate)
@@ -31,27 +29,25 @@ export default function AnimatedCanvas(props) {
     }
     function animate(timestamp) {
       makeRequest(animate)
-      let rect = canvas.parentElement.getBoundingClientRect()
+      let rect = canvas.getBoundingClientRect()
       if (currentLogicalWidth !== rect.width || currentLogicalHeight !== rect.height) {
-      // if (currentLogicalWidth === null) {
         currentLogicalWidth  = rect.width
         currentLogicalHeight = rect.height
         let pixelWidth  = currentLogicalWidth  * dpr
           , pixelHeight = currentLogicalHeight * dpr
         canvas.width  = pixelWidth
         canvas.height = pixelHeight
-        canvas.style.width  = currentLogicalWidth + 'px'
-        canvas.style.height = currentLogicalHeight + 'px'
-        context = canvas.getContext('2d')
-        imageData = context.createImageData(pixelWidth, pixelHeight)
+        imageData =
+          pixelWidth !== 0 && pixelHeight !== 0
+            ? context.createImageData(pixelWidth, pixelHeight)
+            : null
       }
       onFrame({
+        canvas,
+        context,
         imageData,
-        timestamp,
-        height: currentLogicalHeight,
-        width:  currentLogicalWidth
+        timestamp
       })
-      context.putImageData(imageData, 0, 0)
     }
   }
-}
+})

@@ -20,7 +20,7 @@ let fromRLE = str => {
   lines.forEach((runs, y) => {
     let x = 0
 
-    for (let run of runs) {
+    for (var run of runs) {
       let count = parseInt(run) || 1
 
       if (run.includes("o")) {

@@ -1,7 +1,6 @@
-import React, {useRef, useState, useCallback, useEffect} from 'react'
+import React, {useRef, useState, useEffect} from 'react'
 import AnimatedCanvas from "../AnimatedCanvas"
-import Life from 'lowlife'
-import {FaPause, FaPlay, FaStepForward, FaPlus, FaMinus} from 'react-icons/fa'
+import ViewerControls from "../ViewerControls"
 
 let mult = (n, v) => ({x: n * v.x, y: n * v.y})
   // , dot  = (v1, v2) => ({x: v1.x * v2.x, v1.y * v2.y})
@@ -12,216 +11,200 @@ let mult = (n, v) => ({x: n * v.x, y: n * v.y})
 
 export default function InteractiveViewer(props) {
   let i = props.initialState
+    , dragContainer = props.dragContainer
     , stepsPending = useRef(0)
     , life = useRef(i.life)
     , viewRef = useRef({center: i.center, scale: i.scale})
     , translationPerStepRef = useRef(i.translationPerStep)
     , stepsPerFrameRef = useRef(i.stepsPerFrame)
     , [running, setRunning] = useState(i.running)
-    , viewerElementRef = useRef(null)
-    , maxStepsRef = useRef(null)
-    , blurBufferRef = useRef(null)
+    , [editing, setEditing] = useState(i.editing)
+    , ToggleRunning = () => (setRunning(!running), setEditing(false))
+    , ToggleEditing = () => (setEditing(!editing), setRunning(false))
+    , canvasRef = useRef(null)
     , lastTouchesRef = useRef([])
-    , lastMouseRef = useRef(null)
-    , TranslateSteps = useCallback(
-        steps => {
-          let {center, scale} = viewRef.current
-            , d = translationPerStepRef.current
-          viewRef.current = {
-            center: {x: center.x + d.x * steps, y: center.y + d.y * steps},
-            scale
-          }
-        },
-        []
-      )
-    , Viewport = () => {
-        let {scale, center} = viewRef.current
-          , bounds = viewerElementRef.current.getBoundingClientRect()
-          , width  = bounds.width  / scale
-          , height = bounds.height / scale
-        return {
-          v0: {
-            x: center.x - width / 2,
-            y: center.y - height / 2
-          },
-          v1: {
-            x: center.x + width / 2,
-            y: center.y + height / 2
-          },
-          center,
-          width,
-          height
-        }
-      }
-    , HandleFrame = useCallback(
-        ctx => {
-          let v = Viewport()
-            , {width, height} = v
-            , maxSteps = 1 //Math.ceil(stepsPerFrameRef.current)
-            , b = blurBufferRef.current
-            , canReuseBuffer =
-                b
-                && width === b.width
-                && height === b.height
-                && maxSteps === b.maxSteps
-          if (!canReuseBuffer)
-            blurBufferRef.current = Life.BlurBuffer({width, height, maxSteps})
-          let arrayViewport = {
-            v0: [v.v0.x, v.v0.y],
-            v1: [v.v1.x, v.v1.y]
-          }
-          blurBufferRef.current
-            .clear()
-            .add(life.current, arrayViewport)
-            .draw(ctx.imageData, colors, arrayViewport)
-          if (running) {
-            stepsPending.current += stepsPerFrameRef.current
-            let stepsThisFrame = stepsPending.current | 0
-            if (stepsThisFrame > 0) {
-              life.current = life.current.step({count: stepsThisFrame, canMutate: true})
-              stepsPending.current -= stepsThisFrame
-            }
-            TranslateSteps(stepsPerFrameRef.current)
-          }
-        },
-        [life, running, TranslateSteps]
-      )
-    , Play  = () => setRunning(true)
-    , Pause = () => setRunning(false)
+    , mouseDownRef = useRef(null)
+    , lastViewport = null
+    , lifeChanged = true
     , StepOnce = () => {
-        life.current = life.current.step({canMutate: true})
+        Step(1)
         TranslateSteps(1)
       }
     , SpeedDown = () => stepsPerFrameRef.current /= Math.PI/2
     , SpeedUp   = () => stepsPerFrameRef.current *= Math.PI/2
+    , mouseHandlers = {
+        mousemove: HandleMouseMove,
+        mouseup: HandleMouseUp,
+        mouseleave: CleanupMouseDown
+      }
     , controls =
         <div
           style={{
+            position: 'absolute',
+            bottom: '0%',
             display: 'flex',
-            justifyContent: 'center',
+            flexDirection: 'column',
+            justifyContent: 'flex-end',
             alignItems: 'center',
-            backgroundColor: 'lightgray',
             width: '100%',
-            height: '100%'
+            height: '100%',
+            paddingBottom: '5%',
+            pointerEvents: 'none'
           }}
         >
-          {running
-            ? <FaPause size={32} onClick={Pause} />
-            : <FaPlay  size={32} onClick={Play} />}
-          <FaStepForward
-            size={32}
-            onClick={StepOnce}
-            color={running ? 'gray' : 'black'}
-          />
-          <FaMinus
-            size={32}
-            onClick={SpeedDown}
-          />
-          <FaPlus 
-            size={32}
-            onClick={SpeedUp}
-          />
+          <span style={{pointerEvents: 'auto'}}>
+            <ViewerControls {...{size: '2em', running, editing, ToggleRunning, ToggleEditing, SpeedUp, SpeedDown, StepOnce}} />
+          </span>
         </div>
-    , ToggleCell = client => {
-        if (!viewerElementRef.current) return
-        let {x, y} = GridCoordinates(client)
-          , cellLocation = [x, y].map(Math.floor)
-          , cellState = life.current.has(cellLocation)
-        console.log({cellLocation, cellState})
-        life.current = cellState
-          ? life.current.remove(cellLocation)
-          : life.current.add(cellLocation)
-      }
-  useEffect(() => {
-    let v = viewerElementRef.current
-      , Add = v.addEventListener.bind(v)
-      , Remove = v.removeEventListener.bind(v)
-    Add("touchstart",  HandleTouch, { passive: false }) 
-    Add("touchend",    HandleTouch, { passive: false })
-    Add("touchcancel", HandleTouch, { passive: false })
-    Add("touchmove",   HandleTouch, { passive: false })
-    Add("wheel", HandleWheel)
+  useEffect(RegisterTouchHandlers)
+  return (
+    <div style={{position: 'absolute', width: '100%', height: '100%'}}>
+      <AnimatedCanvas
+        style={{
+          touchAction: 'none',
+          width: '100%',
+          height: '100%'
+        }}
+        onMouseDown={HandleMouseDown}
+        onFrame={HandleFrame}
+        onWheel={HandleWheel}
+        ref={canvasRef}
+      />
+      {controls}
+    </div>
+  )
+
+  function RegisterTouchHandlers() {
+    let c = canvasRef.current
+      , Add = c.addEventListener.bind(c)
+    Add("touchstart",  HandleTouch) 
+    Add("touchend",    HandleTouch)
+    Add("touchcancel", HandleTouch)
+    Add("touchmove",   HandleTouch)
     return () => {
+      let Remove = c.removeEventListener.bind(c)
       Remove("touchstart",  HandleTouch) 
       Remove("touchend",    HandleTouch)
       Remove("touchcancel", HandleTouch)
       Remove("touchmove",   HandleTouch)
-      Remove("wheel", HandleWheel)
     }
-  })
+  }
 
-  console.log({stepsPerFrame: stepsPerFrameRef.current, stepsPending: stepsPending.current, running})
-  return (
-    <div style={{width: '100%', height: '100%'}}>
-      <div
-        ref={viewerElementRef}
-        style={{position: 'relative', width: '100%', height: '90%'}}
-        onClick={HandleClick}
-      >
-        <AnimatedCanvas onFrame={HandleFrame} />
-      </div>
-      <div style={{width: '100%', height: '10%'}}>
-        {controls}
-      </div>
-    </div>
-  )
+  function ToggleCell({x, y}) {
+    let cellLocation = [x, y].map(Math.floor)
+      , cellState = life.current.has(cellLocation)
+    lifeChanged = true
+    life.current = cellState
+      ? life.current.remove(cellLocation)
+      : life.current.add(cellLocation)
+  }
+
+  function Viewport() {
+    let {scale, center} = viewRef.current
+      , bounds = canvasRef.current.getBoundingClientRect()
+      , width  = bounds.width  / scale
+      , height = bounds.height / scale
+      , left = center.x - width / 2
+      , right = center.x + width / 2
+      , top = center.y - height / 2
+      , bottom = center.y + height / 2
+      , v0 = {x: left, y: top}
+      , v1 = {x: right, y: bottom}
+    return {v0, v1, left, right, top, bottom, center, width, height}
+  }
+
+  function HandleFrame({imageData, context}) {
+    let viewport = Viewport()
+      , viewportChanged = JSON.stringify(viewport) !== JSON.stringify(lastViewport)
+      , shouldRedraw = viewportChanged || lifeChanged
+    if (imageData && shouldRedraw) {
+      life.current.render({imageData: imageData, viewport, colors})
+      context.putImageData(imageData, 0, 0)
+    }
+    lastViewport = viewport
+    lifeChanged = false
+    if (running) {
+      stepsPending.current += stepsPerFrameRef.current
+      let stepsThisFrame = stepsPending.current | 0
+      if (stepsThisFrame > 0) {
+        Step(stepsThisFrame)
+        stepsPending.current -= stepsThisFrame
+      }
+      TranslateSteps(stepsPerFrameRef.current)
+    }
+  }
+
+  function Step(count) {
+    life.current = life.current.step({count, canMutate: true})
+    lifeChanged = true
+  }
+
+  function TranslateSteps(steps) {
+    let {center, scale} = viewRef.current
+      , d = translationPerStepRef.current
+    viewRef.current = {
+      center: {x: center.x + d.x * steps, y: center.y + d.y * steps},
+      scale
+    }
+  }
 
   function HandleWheel(event) {
     let v = viewRef.current
       , client = {x: event.clientX, y: event.clientY}
       , gridBefore = GridCoordinates(client)
-      , deltaY = event.deltaY || 0
-      , scaleFactor =
-            deltaY > 0 ? Math.sqrt(2)
-          : deltaY < 0 ? 1 / Math.sqrt(2)
-          : 0
-      , scale = v.scale * scaleFactor
+      , scale = v.scale * ScaleFactor(event.deltaY || 0)
     viewRef.current = {center: v.center, scale}
     let gridAfter = GridCoordinates(client)
       , delta = subtract(gridAfter, gridBefore)
       , center = subtract(v.center, delta)
     viewRef.current = {center, scale}
+
+    function ScaleFactor(deltaY) {
+      let c = 2
+      return Math.pow(2, deltaY / Math.sqrt(1 + c * deltaY * deltaY))
+    }
   }
 
   function HandleClick(event) {
-    if (!viewerElementRef.current) return
     if (running)
-      Pause()
-    else
-      ToggleCell({x: event.clientX, y: event.clientY})
+      ToggleRunning()
+    else if (editing)
+      ToggleCell(GridCoordinates({x: event.clientX, y: event.clientY}))
   }
 
   function HandleTouch(event) {
     event.preventDefault()
-
-    // Update trackedTouches
-    let eventTouches = []
-    for (let i = 0; i < event.touches.length; i++) {
-      let t = event.touches.item(i)
-        , client = {x: t.clientX, y: t.clientY}
-        , grid = GridCoordinates(client)
-      eventTouches.push({identifier: t.identifier, timeStamp: event.timeStamp, client, grid})
-    }
-    let lastTouches = lastTouchesRef.current
+    let eventTouches = EventTouches(event)
+      , lastTouches = lastTouchesRef.current
       , newAndUpdatedTouches = UpdateTrackedTouches(eventTouches, lastTouches)
-      , [t1, t2] = newAndUpdatedTouches
       , touchCount = newAndUpdatedTouches.length
-    if (UserTapped())
-      Tap(lastTouches[0])
-    else
-      viewRef.current =
-          touchCount === 2 ? Pinch(t1, t2, viewRef.current)
-        : touchCount === 1 ? Drag(t1, viewRef.current)
-        : viewRef.current
+      , [t1, t2] = newAndUpdatedTouches
+    if (IsTap())
+      HandleTap(lastTouches[0])
+    else if (touchCount === 1)
+      HandleDrag(t1)
+    else if (touchCount === 2)
+      HandlePinch(t1, t2)
     lastTouchesRef.current = newAndUpdatedTouches
 
-    function UserTapped() {
+    function IsTap() {
       let lastTouchCount = lastTouches.length
         , tapThreshold = 150
       if (lastTouchCount !== 1 || touchCount !== 0) return false
       let duration = event.timeStamp - lastTouches[0].initialTimeStamp
       return duration < tapThreshold
     }
+  }
+
+  function EventTouches(event) {
+    var eventTouches = []
+    for (let i = 0; i < event.touches.length; i++) {
+      let t = event.touches.item(i)
+        , client = {x: t.clientX, y: t.clientY}
+        , grid = GridCoordinates(client)
+      eventTouches.push({identifier: t.identifier, timeStamp: event.timeStamp, client, grid})
+    }
+    return eventTouches
   }
 
   function UpdateTrackedTouches(eventTouches, trackedTouches) {
@@ -242,40 +225,90 @@ export default function InteractiveViewer(props) {
     return newAndUpdatedTouches.slice(0, 2)
   }
   
-  function Tap(touch) {
-    if (!viewerElementRef.current) return
+  function HandleTap(touch) {
     if (running)
-      Pause()
-    else
-      ToggleCell(touch.client)
+      ToggleRunning()
+    else if (editing)
+      ToggleCell(touch.grid)
   }
 
-  function Drag(touch, view) {
+  function HandleDrag(touch) {
     let {pinned, grid} = touch
-      , pan = subtract(pinned, grid)
-    return {
-      center: add(pan, view.center),
+      , movement = subtract(pinned, grid)
+      , view = viewRef.current
+    viewRef.current = {
+      center: add(movement, view.center),
       scale: view.scale
     }
   }
 
-  function Pinch(touch1, touch2, view) {
+  function HandlePinch(touch1, touch2) {
     let gridCenter   = midpoint(touch1.grid,   touch2.grid)
       , pinnedCenter = midpoint(touch1.pinned, touch2.pinned)
       , pan = subtract(pinnedCenter, gridCenter)
       , clientDist = distance(touch1.client, touch2.client)
       , pinnedDist = distance(touch1.pinned, touch2.pinned)
-    return {
+      , view = viewRef.current
+    viewRef.current = {
       center: add(pan, view.center),
       scale: clientDist / pinnedDist
     }
+  }
+
+  function HandleMouseDown(event) {
+    let {clientX, clientY, timeStamp} = event
+      , client = {x: clientX, y: clientY}
+    mouseDownRef.current = {
+      client,
+      pinned: GridCoordinates(client),
+      timeStamp
+    }
+    let dc = dragContainer || canvasRef.current
+    for (var key in mouseHandlers)
+      dc.addEventListener(key, mouseHandlers[key])
+  }
+
+  function CleanupMouseDown() {
+    mouseDownRef.current = null
+    let dc = dragContainer || canvasRef.current
+    for (var key in mouseHandlers)
+      dc.removeEventListener(key, mouseHandlers[key])
+  }
+
+  function HandleMouseMove(event) {
+    let mouseDown = mouseDownRef.current
+    if (!mouseDown) return
+    let {clientX, clientY} = event
+      , client = {x: clientX, y: clientY}
+      , grid = GridCoordinates(client)
+      , movement = subtract(mouseDown.pinned, grid)
+    viewRef.current = {
+      center: add(movement, viewRef.current.center),
+      scale: viewRef.current.scale
+    }
+  }
+
+  function HandleMouseUp(event) {
+    let mouseDown = mouseDownRef.current
+    if (!mouseDown) return
+    let {clientX, clientY, timeStamp} = event
+      , grid = GridCoordinates({x: clientX, y: clientY})
+      , movementDistanceLimit = 0
+      , movementDistance = distance(mouseDown.pinned, grid)
+      , withinMovementDistanceLimit = movementDistance <= movementDistanceLimit
+      , mouseDownTimeLimit = 100
+      , mouseDownTime = timeStamp - mouseDown.timeStamp
+      , withinMouseDownTimeLimit = mouseDownTime <= mouseDownTimeLimit
+      , isClick = withinMovementDistanceLimit && withinMouseDownTimeLimit
+    if (isClick) HandleClick(event)
+    CleanupMouseDown()
   }
 
   function GridCoordinates({x: clientX, y: clientY}) {
     let {v0, v1} = Viewport()
       , viewportWidth  = v1.x - v0.x
       , viewportHeight = v1.y - v0.y
-      , bounds = viewerElementRef.current.getBoundingClientRect()
+      , bounds = canvasRef.current.getBoundingClientRect()
       , pixelsFromLeft = clientX - bounds.left
       , pixelsFromTop  = clientY - bounds.top
       , horizontalScale = viewportWidth  / bounds.width
@@ -286,17 +319,7 @@ export default function InteractiveViewer(props) {
   }
 }
 
-let maxSteps = 1
-  , colors = Colors(maxSteps)
-
-function Colors(maxSteps) {
-  let colors = []
-  for (let i = 0; i <= maxSteps; i++) {
-    let R = 255 * (1 - i / maxSteps) | 0
-      , G = R
-      , B = 255
-      , A = 255
-    colors.push([R,G,B,A])
-  }
-  return colors
+let colors = {
+  alive: [0, 0, 255, 255],
+  dead: [255, 255, 255, 255]
 }

@@ -22,7 +22,7 @@ let initialLivingLocations = P.period52gun
 function App() {
   return (
     <div
-      style={{display: 'flex', alignItems: 'stretch', position: 'fixed', overflow: 'hidden', height: '100%', width: '100%'}}
+      style={{position: 'fixed', height: '100%', width: '100%', backgroundColor: 'blue'}}
     >
       {fps}
       <InteractiveViewer
@@ -34,6 +34,7 @@ function App() {
           translationPerStep: {x: 0, y: 0},
           running: false
         }}
+        dragContainer={window}
       />
     </div>
   );
