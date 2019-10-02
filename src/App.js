@@ -1,33 +1,43 @@
-import React from 'react'
+import React, {useState} from 'react'
+import {MdArrowDropDown, MdArrowDropUp} from 'react-icons/md'
 import InteractiveViewer from "./components/InteractiveViewer"
 import Life from 'lowlife'
-import * as P from "./patterns"
+import Patterns from "./patterns/index.js"
 import FPS from "./components/FPS"
-import './App.css'
 
-let initialLivingLocations = P.period52gun
-  , xs = initialLivingLocations.map(([x, y]) => x)
-  , ys = initialLivingLocations.map(([x, y]) => y)
-  , minX = Math.min(...xs)
-  , maxX = Math.max(...xs)
-  , sizeX = maxX - minX
-  , scaleX = window.innerHeight / sizeX
-  , minY = Math.min(...ys)
-  , maxY = Math.max(...ys)
-  , sizeY = maxY - minY
-  , scaleY = window.innerHeight / sizeY
-  , scale = Math.min(scaleX, scaleY) * 0.5
-  , center = {x: (maxX + minX) / 2, y: (maxY + minY) / 2}
+let turingMachine = Patterns.find(p => p.name === "Turing machine").locations
+  , universalTuringMachine = Patterns.find(p => p.name === "Universal Turing machine").locations
+console.log(universalTuringMachine.length)
 
 function App() {
+  let [initialLocations, SetInitialLocations] = useState(turingMachine || Patterns[Math.floor(Math.random() * Patterns.length)].locations)
+    , [showDrawer, SetShowDrawer] = useState(false)
+    , ToggleDrawer = () => SetShowDrawer(!showDrawer)
+    , DrawerArrow = showDrawer ? MdArrowDropDown : MdArrowDropUp
+  var minX = Infinity,
+      maxX = -Infinity,
+      minY = Infinity,
+      maxY = -Infinity
+  for (var [x, y] of initialLocations) {
+    minX = Math.min(x, minX)
+    maxX = Math.max(x, maxX)
+    minY = Math.min(y, minY)
+    maxY = Math.max(y, maxY)
+  }
+  let sizeX = maxX - minX
+    , scaleX = window.innerHeight / sizeX
+    , sizeY = maxY - minY
+    , scaleY = window.innerHeight / sizeY
+    , scale = Math.min(scaleX, scaleY) * 0.5
+    , center = {x: (maxX + minX) / 2, y: (maxY + minY) / 2}
   return (
     <div
-      style={{position: 'fixed', height: '100%', width: '100%', backgroundColor: 'blue'}}
+      style={{height: '100%', width: '100%', display: 'flex', flexDirection: 'column', backgroundColor: 'blue'}}
     >
       {fps}
       <InteractiveViewer
         initialState={{
-          life: Life(initialLivingLocations),
+          life: Life(initialLocations),
           center,
           scale,
           stepsPerFrame: 1,
@@ -36,13 +46,22 @@ function App() {
         }}
         dragContainer={window}
       />
+      <div style={{color: 'white', backgroundColor: 'rgb(50,50,50)'}}>
+        <div style={{height: '2em', width: '100%', display: 'flex', justifyContent: 'center'}}>
+          <DrawerArrow size='2em' color='white' onClick={() => false || ToggleDrawer} />
+        </div>
+        {/* {Patterns.map(pattern => <p onClick={() => false || SetInitialLocations(pattern.locations)}>{pattern.name}</p>)} */}
+      </div>
     </div>
   );
 }
 
+let constrainChildren = {position: 'relative'}
+
 let fps =
   <div style={{
     position: 'fixed',
+    right: 0,
     zIndex: 1,
     color: 'black',
     textShadow: contrastShadow(0.05, 'white')
