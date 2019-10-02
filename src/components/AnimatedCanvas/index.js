@@ -2,10 +2,10 @@ import React, {forwardRef} from 'react'
 
 // A canvas with fixed dimensions and a `onFrame` function that will be called on each animation frame with the canvas's imageData and the frame's timestamp
 export default forwardRef(function AnimatedCanvas(props, ref) {
-  let {onFrame, ...canvasProps} = props
+  let {onFrame} = props
     , dpr = window.devicePixelRatio || 1
     , pendingRequest = null
-  return <canvas ref={withCanvas} {...canvasProps} ></canvas>
+  return <canvas contentEditable="true" ref={withCanvas} style={{height: '100%', width: '100%'}}></canvas>
 
   function withCanvas(canvas) {
     if (ref) {

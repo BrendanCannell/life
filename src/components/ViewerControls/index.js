@@ -15,7 +15,7 @@ export default function Controls(props) {
     , PlayPause = running ? MdPause : MdPlayArrow
     , Spacer = () => <div style={{width: (ems / 3) + 'em'}}></div>
     , speedUpDown = showSpeedUpDown &&
-        <div style={{...mainStyle, display: 'flex', flexDirection: 'column', position: 'absolute', bottom: '2.3em', right: '0',}}>
+        <div style={{...mainStyle, display: 'flex', flexDirection: 'column', position: 'absolute', bottom: '2.3em'}}>
           <MdAdd
             onClick={SpeedUp}
             {...iconProps}
@@ -27,7 +27,7 @@ export default function Controls(props) {
         </div>
       
   return (
-    <div style={{...mainStyle, display: 'flex', width: '100%', height: '100%'}} >
+    <div style={{...mainStyle, display: 'flex'}} >
       <PlayPause onClick={ToggleRunning} {...iconProps} />
       <Spacer />
       <StepForward onClick={StepOnce} {...iconProps} />
