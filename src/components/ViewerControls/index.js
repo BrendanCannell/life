@@ -3,7 +3,7 @@ import {MdPause, MdPlayArrow, MdSlowMotionVideo, MdAdd, MdRemove, MdModeEdit} fr
 import StepForward from "../icons/StepForward"
 
 export default function Controls(props) {
-  let {size, running, editing, ToggleRunning, ToggleEditing, SpeedUp, SpeedDown, StepOnce} = props
+  let {size, running, editing, withViewerState, ToggleRunning, ToggleEditing, SpeedUp, SpeedDown, StepOnce} = props
     , [showSpeedUpDown, SetShowSpeedUpDown] = useState(false)
     , ems = parseInt(size)
     , mainStyle = MainStyle(ems)

@@ -1,41 +1,26 @@
-import React, {useState} from 'react'
+import React from 'react'
+import {useSelector, useDispatch} from 'react-redux'
+import {toggleShowingDrawer} from './redux'
 import {MdArrowDropDown, MdArrowDropUp} from 'react-icons/md'
-import InteractiveViewer from "./components/InteractiveViewer"
-import Life from 'lowlife'
-import Patterns from "./patterns/index.js"
+// import InteractiveViewer from "./components/InteractiveViewer"
+// import Life from 'lowlife'
+// import Patterns from "./patterns/index.js"
 import FPS from "./components/FPS"
 
-let turingMachine = Patterns.find(p => p.name === "Turing machine").locations
-  , universalTuringMachine = Patterns.find(p => p.name === "Universal Turing machine").locations
-console.log(universalTuringMachine.length)
+// let turingMachine = Patterns.find(p => p.name === "Turing machine").locations
+//   , universalTuringMachine = Patterns.find(p => p.name === "Universal Turing machine").locations
+// console.log(universalTuringMachine.length)
 
 function App() {
-  let [initialLocations, SetInitialLocations] = useState(turingMachine || Patterns[Math.floor(Math.random() * Patterns.length)].locations)
-    , [showDrawer, SetShowDrawer] = useState(false)
-    , ToggleDrawer = () => SetShowDrawer(!showDrawer)
-    , DrawerArrow = showDrawer ? MdArrowDropDown : MdArrowDropUp
-  var minX = Infinity,
-      maxX = -Infinity,
-      minY = Infinity,
-      maxY = -Infinity
-  for (var [x, y] of initialLocations) {
-    minX = Math.min(x, minX)
-    maxX = Math.max(x, maxX)
-    minY = Math.min(y, minY)
-    maxY = Math.max(y, maxY)
-  }
-  let sizeX = maxX - minX
-    , scaleX = window.innerHeight / sizeX
-    , sizeY = maxY - minY
-    , scaleY = window.innerHeight / sizeY
-    , scale = Math.min(scaleX, scaleY) * 0.5
-    , center = {x: (maxX + minX) / 2, y: (maxY + minY) / 2}
+  let dispatch = useDispatch()
+    , showingDrawer = useSelector(st => st.showingDrawer)
+    , DrawerArrow = showingDrawer ? MdArrowDropDown : MdArrowDropUp
   return (
     <div
       style={{height: '100%', width: '100%', display: 'flex', flexDirection: 'column', backgroundColor: 'blue'}}
     >
       {fps}
-      <InteractiveViewer
+      {/* <InteractiveViewer
         initialState={{
           life: Life(initialLocations),
           center,
@@ -45,10 +30,10 @@ function App() {
           running: false
         }}
         dragContainer={window}
-      />
+      /> */}
       <div style={{color: 'white', backgroundColor: 'rgb(50,50,50)'}}>
-        <div style={{height: '2em', width: '100%', display: 'flex', justifyContent: 'center'}}>
-          <DrawerArrow size='2em' color='white' onClick={() => false || ToggleDrawer} />
+        <div style={{height: '2em', height: showingDrawer ? '200px' : '50px', width: '100%', display: 'flex', justifyContent: 'center'}}>
+          <DrawerArrow size='2em' color='white' onClick={() => dispatch(toggleShowingDrawer())} />
         </div>
         {/* {Patterns.map(pattern => <p onClick={() => false || SetInitialLocations(pattern.locations)}>{pattern.name}</p>)} */}
       </div>
