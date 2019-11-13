@@ -1,5 +1,5 @@
 import React, {useRef, useState, useEffect} from 'react'
-import {useSelector, useDispatch} from 'react-redux'
+import {useSelector} from 'react-redux'
 import AnimatedCanvas from "../AnimatedCanvas"
 import ViewerControls from "../ViewerControls"
 
@@ -12,11 +12,11 @@ let Mult = (n, v) => ({x: n * v.x, y: n * v.y})
   , Distance = (v1, v2) => Magnitude(Subtract(v1, v2))
 
 export default function InteractiveViewer(props) {
-  let {withViewerState, dragContainer} = props
-    , canvasRef = useRef(null)
+  let {colors, dragContainer, getState, advanceOneFrame, fitToBounds, pan, setScale, speedDown, speedUp, stepOnce, toggleCell, toggleEditing, toggleRunning, toggleShowingSpeedControls, zoom} = props
+    , canvasContainerRef = useRef(null)
+    , dragContainerRef = useRef(dragContainer || null)
     , lastTouchesRef = useRef([])
     , mouseDownRef = useRef(null)
-    , stepsPendingRef = useRef(0)
     , lastViewport = null
     , lastImageData = null
     , lastLifeHash = null
@@ -25,9 +25,13 @@ export default function InteractiveViewer(props) {
         mouseup: HandleMouseUp,
         mouseleave: CleanupMouseDown
       }
+    useEffect(() => {
+      if (dragContainer) UpdateDragContainerRef(dragContainer)
+      return () => {if (dragContainer) UpdateDragContainerRef(null)}
+    })
         
   return (
-    <div style={{position: 'relative', flex: 'auto'}}>
+    <div style={{position: 'relative', flex: 'auto', height: '100%', width: '100%'}}>
       <div style={{position: 'absolute', height: '100%', width: '100%'}}>
         <Viewer />
       </div>
@@ -49,88 +53,107 @@ export default function InteractiveViewer(props) {
   )
 
   function Viewer() {
-    useEffect(RegisterTouchHandlers)
     return (
       <div
         style={{height: '100%', width: '100%'}}
         onMouseDown={HandleMouseDown}
         onWheel={HandleWheel}
-        ref={canvasRef}
+        ref={UpdateCanvasContainerRef}
       >
-        <AnimatedCanvas onFrame={frameData => withViewerState(st => HandleFrame(st, frameData))} />
+        <AnimatedCanvas onFrame={HandleFrame} />
       </div>
     )
   }
 
   function Controls() {
-    let running = useSelector(st => st.running)
-      , editing = useSelector(st => st.editing)
     return (
-      <ViewerControls {...{size: '2em', running, editing, ToggleRunning, ToggleEditing, SpeedUp, SpeedDown, StepOnce}} />
+      <ViewerControls {...{size: '2em', colors, toggleRunning, toggleEditing, toggleShowingSpeedControls, speedUp, speedDown, stepOnce}} />
     )
   }
 
-  function RegisterTouchHandlers() {
-    let c = canvasRef.current
-      , Add = c.addEventListener.bind(c)
-      , handler = event => withViewerState(st => HandleTouch(st, event))
-    Add("touchstart",  handler) 
-    Add("touchend",    handler)
-    Add("touchcancel", handler)
-    Add("touchmove",   handler)
-    return () => {
-      let Remove = c.removeEventListener.bind(c)
-      Remove("touchstart",  handler) 
-      Remove("touchend",    handler)
-      Remove("touchcancel", handler)
-      Remove("touchmove",   handler)
+  function UpdateCanvasContainerRef(canvasContainer) {
+    let {current} = canvasContainerRef
+    if (current && canvasContainer != current) {
+      let Remove = current.removeEventListener.bind(current)
+      Remove("touchstart",  HandleTouch) 
+      Remove("touchend",    HandleTouch)
+      Remove("touchcancel", HandleTouch)
+      Remove("touchmove",   HandleTouch)
+      canvasContainerRef.current = null
+    }
+    if (canvasContainer) {
+      let {width, height, left, right, top, bottom} = canvasContainer.getBoundingClientRect()
+      if (width > 0 && height > 0) fitToBounds({width, height, left, right, top, bottom})
+      let Add = canvasContainer.addEventListener.bind(canvasContainer)
+      Add("touchstart",  HandleTouch) 
+      Add("touchend",    HandleTouch)
+      Add("touchcancel", HandleTouch)
+      Add("touchmove",   HandleTouch)
+      canvasContainerRef.current = canvasContainer
+    }
+    if (!dragContainerRef.current) UpdateDragContainerRef(canvasContainer)
+  }
+
+  function UpdateDragContainerRef(dragContainer) {
+    let {current} = dragContainerRef
+    if (current && dragContainer != current) {
+      let Remove = current.removeEventListener.bind(current)
+      Remove("keyup", HandleKey)
+      dragContainerRef.current = null
+    }
+    if (dragContainer) {
+      let Add = dragContainer.addEventListener.bind(dragContainer)
+      Add("keyup", HandleKey)
+      dragContainerRef.current = dragContainer
     }
   }
 
-  function HandleFrame(st, {context, imageData}) {
-    let viewport = CurrentViewport(st)
+  function HandleKey(event) {
+    if (event.key === ' ') toggleRunning()
+  }
+
+  function HandleFrame({context, imageData}) {
+    let {life, running, scale} = getState()
+    if (!scale) return
+    let viewport = CurrentViewport()
       , viewportChanged = JSON.stringify(viewport) !== JSON.stringify(lastViewport)
       , imageDataChanged = imageData !== lastImageData
-      , lifeChanged = st.life.hash() !== lastLifeHash
+      , lifeChanged = life.hash() !== lastLifeHash
       , shouldRedraw = viewportChanged || imageDataChanged || lifeChanged
     if (imageData && shouldRedraw) {
-      st.life.render({imageData, viewport, colors})
+      life.render({imageData, viewport, colors})
       context.putImageData(imageData, 0, 0)
     }
     lastViewport = viewport
     lastImageData = imageData
-    lastLifeHash = st.life.hash()
-    if (st.running)
-      AdvanceOneFrame()
+    lastLifeHash = life.hash()
+    if (running) advanceOneFrame()
   }
 
   // TODO debouncing
-  function HandleWheel(st, event) {
+  function HandleWheel(event) {
     let scaleFactor = ScaleFactor(event.deltaY || 0)
-    st.scale *= scaleFactor
-    let client = {x: event.clientX, y: event.clientY}
+      , client = {x: event.clientX, y: event.clientY}
       , fixedPoint = GridCoordinates(client)
-      , offset = Subtract(fixedPoint, st.center)
-      , movement = Mult(1 - 1/scaleFactor, offset)
-    st.center = Add(st.center, movement)
+    zoom({scaleFactor, fixedPoint})
 
     function ScaleFactor(deltaY) {
       let c = 2
-      return Math.pow(2, deltaY / Math.sqrt(1 + c * deltaY * deltaY))
+      return Math.pow(2, -deltaY / Math.sqrt(1 + c * deltaY * deltaY))
     }
   }
 
-  function HandleClick(st, event) {
-    if (st.editing) {
+  function HandleClick(event) {
+    if (getState().editing) {
       let client = {x: event.clientX, y: event.clientY}
-        , grid = GridCoordinates(st, client)
-      ToggleCell(st, grid)
+        , grid = GridCoordinates(client)
+      toggleCell(grid)
     }
   }
 
-  function HandleTouch(st, event) {
+  function HandleTouch(event) {
     event.preventDefault()
-    let eventTouches = EventTouches(st, event)
+    let eventTouches = EventTouches(event)
       , lastTouches = lastTouchesRef.current
       , newAndUpdatedTouches = UpdateTrackedTouches(eventTouches, lastTouches)
       , touchCount = newAndUpdatedTouches.length
@@ -142,11 +165,11 @@ export default function InteractiveViewer(props) {
       for (var t of newAndUpdatedTouches)
         t.noTap = true
     if (isTap)
-      HandleTap(st, lastTouches[0])
+      HandleTap(lastTouches[0])
     else if (isDrag) 
-      HandleDrag(st, t1)
+      HandleDrag(t1)
     else if (isPinch)
-      HandlePinch(st, t1, t2)
+      HandlePinch(t1, t2)
     lastTouchesRef.current = newAndUpdatedTouches
 
     function IsTap() {
@@ -166,12 +189,12 @@ export default function InteractiveViewer(props) {
     }
   }
 
-  function EventTouches(st, event) {
+  function EventTouches(event) {
     var eventTouches = []
     for (let i = 0; i < event.touches.length; i++) {
       let t = event.touches.item(i)
         , client = {x: t.clientX, y: t.clientY}
-        , grid = GridCoordinates(st, client)
+        , grid = GridCoordinates(client)
       eventTouches.push({identifier: t.identifier, timeStamp: event.timeStamp, client, grid})
     }
     return eventTouches
@@ -188,63 +211,61 @@ export default function InteractiveViewer(props) {
     return newAndUpdatedTouches.slice(0, 2)
   }
   
-  function HandleTap(st, touch) {
-    if (st.editing)
-      ToggleCell(st, touch.grid)
+  function HandleTap(touch) {
+    if (getState().editing)
+      toggleCell(touch.grid)
   }
 
-  function HandleDrag(st, touch) {
-    let movement = Subtract(touch.grid, touch.initial.grid)
-    st.center = Subtract(st.center, movement)
+  function HandleDrag(touch) {
+    let movement = Subtract(touch.initial.grid, touch.grid)
+    pan(movement)
   }
 
-  function HandlePinch(st, touch1, touch2) {
-    let currentCenter = Midpoint(touch1.grid, touch2.grid)
-      , initialCenter = Midpoint(touch1.initial.grid, touch2.initial.grid)
-      , movement = Subtract(initialCenter, currentCenter)
+  function HandlePinch(touch1, touch2) {
+    let currentTouchCenter = Midpoint(touch1.grid, touch2.grid)
+      , initialTouchCenter = Midpoint(touch1.initial.grid, touch2.initial.grid)
+      , movement = Subtract(initialTouchCenter, currentTouchCenter)
       , currentClientDistance = Distance(touch1.client, touch2.client)
       , initialGridDistance = Distance(touch1.initial.grid, touch2.initial.grid)
-    st.center = Add(movement, st.center)
-    st.scale = currentClientDistance / initialGridDistance
+    setScale(currentClientDistance / initialGridDistance)
+    pan(movement)
   }
 
-  function HandleMouseDown(st, event) {
+  function HandleMouseDown(event) {
     let {clientX, clientY, timeStamp} = event
       , client = {x: clientX, y: clientY}
     mouseDownRef.current = {
       client,
-      grid: GridCoordinates(st, client),
+      grid: GridCoordinates(client),
       timeStamp
     }
-    let dc = dragContainer || canvasRef.current
-    for (var key in mouseHandlers)
-      dc.addEventListener(key, mouseHandlers[key])
+    if (dragContainer) for (var key in mouseHandlers)
+      dragContainer.addEventListener(key, mouseHandlers[key])
   }
 
   function CleanupMouseDown() {
     mouseDownRef.current = null
-    let dc = dragContainer || canvasRef.current
-    for (var key in mouseHandlers)
-      dc.removeEventListener(key, mouseHandlers[key])
+    if (dragContainer) for (var key in mouseHandlers)
+      dragContainer.removeEventListener(key, mouseHandlers[key])
   }
 
-  function HandleMouseMove(st, event) {
+  function HandleMouseMove(event) {
     let mouseDown = mouseDownRef.current
     if (!mouseDown) return
     let client = {x: event.clientX, y: event.clientY}
       , clientMovement = Distance(client, mouseDown.client)
       , dragThreshold = 3
     if (clientMovement < dragThreshold) return
-    let grid = GridCoordinates(st, client)
-      , gridMovement = Subtract(grid, mouseDown.grid)
-    st.center = Subtract(st.center, gridMovement)
+    let grid = GridCoordinates(client)
+      , gridMovement = Subtract(mouseDown.grid, grid)
+    pan(gridMovement)
   }
 
-  function HandleMouseUp(st, event) {
+  function HandleMouseUp(event) {
     let mouseDown = mouseDownRef.current
     if (!mouseDown) return
     let {clientX, clientY, timeStamp} = event
-      , grid = GridCoordinates(st, {x: clientX, y: clientY})
+      , grid = GridCoordinates({x: clientX, y: clientY})
       , movementDistanceLimit = 0
       , movementDistance = Distance(grid, mouseDown.grid)
       , withinMovementDistanceLimit = movementDistance <= movementDistanceLimit
@@ -252,15 +273,15 @@ export default function InteractiveViewer(props) {
       , mouseDownTime = timeStamp - mouseDown.timeStamp
       , withinMouseDownTimeLimit = mouseDownTime <= mouseDownTimeLimit
       , isClick = withinMovementDistanceLimit && withinMouseDownTimeLimit
-    if (isClick) HandleClick(st, event)
+    if (isClick) HandleClick(event)
     CleanupMouseDown()
   }
 
-  function GridCoordinates(st, {x: clientX, y: clientY}) {
-    let {v0, v1} = CurrentViewport(st)
+  function GridCoordinates({x: clientX, y: clientY}) {
+    let {v0, v1} = CurrentViewport()
       , viewportWidth  = v1.x - v0.x
       , viewportHeight = v1.y - v0.y
-      , bounds = canvasRef.current.getBoundingClientRect()
+      , bounds = canvasContainerRef.current.getBoundingClientRect()
       , pixelsFromLeft = clientX - bounds.left
       , pixelsFromTop  = clientY - bounds.top
       , horizontalScale = viewportWidth  / bounds.width
@@ -270,15 +291,19 @@ export default function InteractiveViewer(props) {
     return {x: gridX, y: gridY}
   }
 
-  function CurrentViewport(st) {
-    return Viewport(st, canvasRef.current.getBoundingClientRect())
-  }
 
-  function AdvanceOneFrame(st) {
-    stepsPendingRef.current += st.stepsPerFrame
-    Step(st, stepsPendingRef.current)
-    let stepsThisFrame = Math.floor(stepsPendingRef.current)
-    stepsPendingRef.current -= stepsThisFrame
+  function CurrentViewport() {
+    let {center, scale} = getState()
+      , canvasBounds = canvasContainerRef.current.getBoundingClientRect()
+      , width  = canvasBounds.width  / scale
+      , height = canvasBounds.height / scale
+      , left   = center.x - width  / 2
+      , right  = center.x + width  / 2
+      , top    = center.y - height / 2
+      , bottom = center.y + height / 2
+      , v0 = {x: left,  y: top}
+      , v1 = {x: right, y: bottom}
+    return {v0, v1, left, right, top, bottom, center, width, height}
   }
 }
 

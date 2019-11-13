@@ -10,78 +10,31 @@ let Mult = (n, v) => ({x: n * v.x, y: n * v.y})
   , Midpoint = (v1, v2) => Mult(1/2, Add(v1, v2))
   , Distance = (v1, v2) => Magnitude(Subtract(v1, v2))
 
-let initialLocations = Patterns[0].locations
-
-var minX = Infinity,
-    maxX = -Infinity,
-    minY = Infinity,
-    maxY = -Infinity
-for (var [x, y] of initialLocations) {
-  minX = Math.min(x, minX)
-  maxX = Math.max(x, maxX)
-  minY = Math.min(y, minY)
-  maxY = Math.max(y, maxY)
-}
-let sizeX = maxX - minX
-  , scaleX = window.innerWidth / sizeX
-  , sizeY = maxY - minY
-  , scaleY = window.innerHeight / sizeY
-  , scale = Math.min(scaleX, scaleY) * 0.5 || 10 // TODO deal with empty initialLocations
-  , center = {x: (maxX + minX) / 2, y: (maxY + minY) / 2}
+let initialLocations = Patterns.find(p => p.name === "Period-52 glider gun").locations
+let initialBounds = initialLocations.length > 0
+  ? BoundingRect(initialLocations)
+  : {center: {x: 0, y: 0}, width: 0, height: 0}
 
 let initialState = {
-  life: Life(initialLocations),
-  stepsPerFrame: 1/8,
-  stepsPending: 0,
-  mainCanvas: document.createElement('canvas'),
-  canvasBounds: null,
-  center: center,
-  scale: scale,
-  lastViewport: null,
-  translationPerStep: {x: 0, y: 0},
-  running: false,
-  editing: true,
-  showingSpeedControls: false,
+  viewerState: {
+    initialBounds,
+    life: Life(initialLocations),
+    center: initialBounds.center,
+    scale: null,
+    stepsPerFrame: 1/8,
+    stepsPending: 0,
+    translationPerStep: {x: 0, y: 0},
+    running: false,
+    suspended: false,
+    editing: false,
+    showingSpeedControls: false,
+  },
   showingDrawer: false,
-  lastMouse: null,
-  lastTouches: []
 }
 
-let Context = createSelector(
-  [st => st.mainCanvas],
-  mainCanvas => mainCanvas && mainCanvas.getContext('2d')
-)
+export let ViewerState = st => st.viewerState
 
-function CanvasBounds(st) {
-  return st.mainCanvas && st.mainCanvas.getBoundingClientRect()
-}
-
-function DevicePixelRatio() {
-  return window.devicePixelRatio || 1
-}
-
-let CanvasImageData = createSelector(
-  [st => st.mainCanvas, Context, st => CanvasBounds(st).width, st => CanvasBounds(st).height, DevicePixelRatio],
-  (canvas, context, logicalWidth, logicalHeight, dpr) => {
-    let pixelWidth  = logicalWidth  * dpr
-      , pixelHeight = logicalHeight * dpr
-    canvas.width  = pixelWidth
-    canvas.height = pixelHeight
-    return pixelWidth !== 0 && pixelHeight !== 0
-        ? context.createImageData(pixelWidth, pixelHeight)
-        : null
-  }
-)
-
-let DrawLife = createSelector(
-  [Context, st => st.life, Viewport, CanvasImageData, st => st.life.hash()],
-  (context, life, viewport, imageData) => {
-    life.render({imageData, viewport, colors})
-    context.putImageData(imageData, 0, 0)
-  }
-)
-
-let AdvanceFrame = st => {
+export let AdvanceFrame = st => {
   st.stepsPending += st.stepsPerFrame
   Step(st, st.stepsPending)
   let stepsThisFrame = Math.floor(st.stepsPending)
@@ -89,187 +42,138 @@ let AdvanceFrame = st => {
 }
 
 export let
-    frame = createAction('frame')
-  , mouseDown = createAction('mouseDown')
-  , mouseMove = createAction('mouseMove')
-  , mouseUp = createAction('mouseUp')
+    advanceOneFrame = createAction('advanceOneFrame')
+  , fitToBounds = createAction('fitToBounds')
   , pan = createAction('pan')
-  , zoom = createAction('zoom')
+  , setScale = createAction('setScale')
+  , setLife = createAction('setLife')
   , speedDown = createAction('speedDown')
   , speedUp = createAction('speedUp')
   , stepOnce = createAction('stepOnce')
+  , toggleCell = createAction('toggleCell')
   , toggleEditing = createAction('toggleEditing')
   , toggleRunning = createAction('toggleRunning')
-  , toggleShowingSpeedControls = createAction('toggleShowingSpeedControls')
   , toggleShowingDrawer = createAction('toggleShowingDrawer')
-  , touch = createAction('touch')
+  , toggleShowingSpeedControls = createAction('toggleShowingSpeedControls')
+  , zoom = createAction('zoom')
 
 let reducer = createReducer(initialState, {
-  [frame]: (st, {payload: now}) => {
-    // Redraw, if needed
-    DrawLife(st)
-    // Advance, if running
-    if (st.running)
-      AdvanceFrame(st)
+  [advanceOneFrame]: (st) => {
+    let vst = ViewerState(st)
+    if (!vst.running || vst.editing) return
+    vst.stepsPending += vst.stepsPerFrame
+    Step(vst, vst.stepsPending)
+    let stepsThisFrame = Math.floor(vst.stepsPending)
+    vst.stepsPending -= stepsThisFrame
   },
-  [mouseDown]: (st) => {},
-  [mouseMove]: (st) => {},
-  [mouseUp]: (st) => {},
   [pan]: (st, {payload: movement}) => {
-    st.center = Add(movement, st.center)
+    let vst = ViewerState(st)
+    vst.center = Add(movement, vst.center)
   },
-  [zoom]: (st, {payload: {fixedPoint, scaleFactor}}) => {
-    let centerToFixed = Subtract(fixedPoint, st.center)
-      , movement = Mult(1 - 1/scaleFactor, centerToFixed)
-    st.center = Add(st.center, movement)
-    st.scale *= scaleFactor
+  [fitToBounds]: (st, {payload: clientBounds}) => {
+    let vst = ViewerState(st)
+    Object.assign(vst, FitToBounds(clientBounds, vst.initialBounds))
   },
-  [speedDown]: (st) => {st.stepsPerFrame /= Math.PI/2},
-  [speedUp]:   (st) => {st.stepsPerFrame *= Math.PI/2},
-  [stepOnce]: (st) => {Step(st, 1)},
+  [setScale]: (st, {payload: scale}) => {ViewerState(st).scale = scale},
+  [setLife]: (st, {payload: locations}) => {
+    let vst = ViewerState(st)
+    vst.life = Life(locations)
+    vst.initialBounds = locations.length > 0
+      ? BoundingRect(locations)
+      : {center: {x: 0, y: 0}, width: 0, height: 0}
+    vst.center = vst.initialBounds.center
+    vst.scale = null
+  },
+  [speedDown]: (st) => {ViewerState(st).stepsPerFrame /= Math.PI/2},
+  [speedUp]:   (st) => {ViewerState(st).stepsPerFrame *= Math.PI/2},
+  [stepOnce]: (st) => Step(ViewerState(st), 1),
+  [toggleCell]: (st, {payload: {x, y}}) => {
+    let vst = ViewerState(st)
+      , cellLocation = [x, y].map(Math.floor)
+      , cellState = vst.life.has(cellLocation)
+    vst.life = cellState
+      ? vst.life.remove(cellLocation)
+      : vst.life.add(cellLocation)
+    vst.lifeChanged = true
+    vst.lifeIteration++
+  },
   [toggleEditing]: (st) => {
-    st.editing = !st.editing
-    st.running = false
-    st.showingSpeedControls = false
+    let vst = ViewerState(st)
+    if (!vst.editing){
+      vst.editing = true
+      if (vst.running) {
+        vst.running = false
+        vst.suspended = true
+      }
+      vst.showingSpeedControls = false
+    } else {
+      vst.editing = false
+      if (vst.suspended) {
+        vst.suspended = false
+        vst.running = true
+      }
+    }
   },
   [toggleRunning]: (st) => {
-    st.running = !st.running
-    st.editing = false
+    let vst = ViewerState(st)
+    vst.running = !vst.running
+    vst.editing = false
+    vst.suspended = false
   },
-  [toggleShowingDrawer]: (st) => {st.showingDrawer = !st.showingDrawer},
+  [toggleShowingDrawer]: (st) => {
+    st.showingDrawer = !st.showingDrawer
+  },
   [toggleShowingSpeedControls]: (st) => {
-    st.showingSpeedControls = !st.showingSpeedControls
-    st.editing = false
+    let vst = ViewerState(st)
+    vst.showingSpeedControls = !vst.showingSpeedControls
   },
-  [touch]: (st, {payload: event}) => {
-    let eventTouches = EventTouches(st, event)
-      , lastTouches = st.lastTouches
-      , newAndUpdatedTouches = UpdateTrackedTouches(eventTouches, st.lastTouches)
-      , touchCount = newAndUpdatedTouches.length
-      , [t1, t2] = newAndUpdatedTouches
-    // TODO use enum
-      , isTap = IsTap()
-      , isDrag = IsDrag()
-      , isPinch = touchCount === 2
-    if (isDrag || isPinch)
-      for (var t of newAndUpdatedTouches)
-        t.noTap = true
-    if (isTap)
-      HandleTap(st, st.lastTouches[0])
-    else if (isDrag) 
-      HandleDrag(st, t1)
-    else if (isPinch)
-      HandlePinch(st, t1, t2)
-    st.lastTouches = newAndUpdatedTouches
-  
-    function IsTap() {
-      let lastTouchCount = lastTouches.length
-      return (
-        touchCount === 0
-        && lastTouchCount === 1
-        && !lastTouches[0].noTap
-      )
-    }
-  
-    function IsDrag() {
-      if (touchCount !== 1) return false
-      let clientMovement = Distance(t1.client, t1.initial.client)
-        , dragThreshold = 3
-      return clientMovement > dragThreshold
-    }
-  }
+  [zoom]: (st, {payload: {fixedPoint, scaleFactor}}) => {
+    let vst = ViewerState(st)
+    let centerToFixed = Subtract(fixedPoint, vst.center)
+      , movement = Mult(1 - 1/scaleFactor, centerToFixed)
+    vst.center = Add(vst.center, movement)
+    vst.scale *= scaleFactor
+  },
 })
-  
-function HandleTap(st, touch) {
-  if (st.editing)
-    ToggleCell(st, touch.grid)
-}
 
-function HandleDrag(st, touch) {
-  let movement = Subtract(touch.grid, touch.initial.grid)
-  st.center = Subtract(st.center, movement)
-}
-
-function HandlePinch(st, touch1, touch2) {
-  let currentCenter = Midpoint(touch1.grid, touch2.grid)
-    , initialCenter = Midpoint(touch1.initial.grid, touch2.initial.grid)
-    , movement = Subtract(initialCenter, currentCenter)
-    , currentClientDistance = Distance(touch1.client, touch2.client)
-    , initialGridDistance = Distance(touch1.initial.grid, touch2.initial.grid)
-  st.center = Add(movement, st.center)
-  st.scale = currentClientDistance / initialGridDistance
-}
-
-function ToggleCell(st, {payload: {x, y}}) {
-  let cellLocation = [x, y].map(Math.floor)
-    , cellState = st.life.has(cellLocation)
-  st.life = cellState
-    ? st.life.remove(cellLocation)
-    : st.life.add(cellLocation)
-  st.lifeChanged = true
-  st.lifeIteration++
-}
-
-function EventTouches(st, event) {
-  var eventTouches = []
-  for (let i = 0; i < event.touches.length; i++) {
-    let t = event.touches.item(i)
-      , client = {x: t.clientX, y: t.clientY}
-      , grid = GridCoordinates(st, client)
-    eventTouches.push({identifier: t.identifier, timeStamp: event.timeStamp, client, grid})
-  }
-  return eventTouches
-}
-
-function UpdateTrackedTouches(eventTouches, trackedTouches) {
-  let OldVersion = eventTouch => trackedTouches.find(trackedTouch => trackedTouch.identifier === eventTouch.identifier)
-    , newAndUpdatedTouches = eventTouches.map(eventTouch => {
-        let oldVersion = OldVersion(eventTouch)
-          , initial = oldVersion ? oldVersion.initial : eventTouch
-          , noTap   = oldVersion ? oldVersion.noTap   : false
-        return {...eventTouch, initial, noTap}
-      })
-  return newAndUpdatedTouches.slice(0, 2)
-}
-
-function Step(st, count) {
+function Step(vst, count) {
   if (Math.floor(count) > 0) {
-    st.life = st.life.step({count: Math.floor(count), canFree: true})
-    st.lifeChanged = true
-    st.lifeIteration++
+    vst.life = vst.life.step({count: Math.floor(count), canFree: true})
+    vst.lifeChanged = true
+    vst.lifeIteration++
   }
-  st.center = Add(st.center, Mult(count, st.translationPerStep))
+  vst.center = Add(vst.center, Mult(count, vst.translationPerStep))
 }
 
-function Viewport(st) {
-  let center = st.center
-    , scale  = st.scale
-    , canvasBounds = CanvasBounds(st)
-    , width  = canvasBounds.width  / scale
-    , height = canvasBounds.height / scale
-    , left   = center.x - width  / 2
-    , right  = center.x + width  / 2
-    , top    = center.y - height / 2
-    , bottom = center.y + height / 2
-    , v0 = {x: left,  y: top}
-    , v1 = {x: right, y: bottom}
-  return {v0, v1, left, right, top, bottom, center, width, height}
+function BoundingRect(locations) {
+  if (locations.length === 0) throw Error("Expected non-empty locations array")
+  var left = Infinity
+  var right = -Infinity
+  var bottom = Infinity
+  var top = -Infinity
+  for (var [x, y] of locations) {
+    left = Math.min(x, left)
+    right = Math.max(x, right)
+    bottom = Math.min(y, bottom)
+    top = Math.max(y, top)
+  }
+  let topleft = {x: left, y: top}
+    , bottomright = {x: right, y: bottom}
+    , width = right - left
+    , height = top - bottom
+    , center = Midpoint(topleft, bottomright)
+  return {bottom, top, left, right, bottomright, topleft, width, height, center}
 }
 
-// TODO use st.scale
-function GridCoordinates(st, {x: clientX, y: clientY}) {
-  let bounds = CanvasBounds(st)
-    , viewport = Viewport(st)
-    , pixelsFromLeft = clientX - bounds.left
-    , pixelsFromTop  = clientY - bounds.top
-    , horizontalScale = viewport.width  / bounds.width
-    , verticalScale   = viewport.height / bounds.height
-    , gridX = pixelsFromLeft * horizontalScale + viewport.left
-    , gridY = pixelsFromTop  * verticalScale   + viewport.top
-  return {x: gridX, y: gridY}
+function FitToBounds(clientBounds, locationBounds) {
+  let center = locationBounds.center
+    , width = Math.max(locationBounds.width * 1.2, 10)
+    , height = Math.max(locationBounds.height * 1.2, 10)
+    , scaleX = clientBounds.width / width
+    , scaleY = clientBounds.height / height
+    , scale = Math.min(scaleX, scaleY)
+  return {scale, center}
 }
-
-let colors = {alive: [0, 255, 0, 255], dead: [20, 20, 20, 255]}
 
 
 // const {actions, reducer: todosReducer} = createSlice({
@@ -290,4 +194,23 @@ let colors = {alive: [0, 255, 0, 255], dead: [20, 20, 20, 255]}
 //   }
 // })
 
-export let store = configureStore({reducer, middleware: [thunk]})
+let actionSanitizer = action =>
+  action.type === setLife.toString()
+    ? {...action, locations: '<<LOCATIONS_ARRAY>>'}
+    : action
+let stateSanitizer = ({viewerState, ...rest}) => {
+    let {life, ...viewerStateRest} = viewerState
+    return {
+      viewerState: {
+        life: `<<LIFE-${life.hash}`,
+        ...viewerStateRest
+      },
+      ...rest
+    }
+  }
+
+export let store = configureStore({
+  reducer,
+  middleware: [thunk],
+  devTools: {actionSanitizer, stateSanitizer}
+})
