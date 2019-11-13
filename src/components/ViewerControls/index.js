@@ -1,12 +1,16 @@
 import React, {useState} from 'react'
+import {useSelector} from 'react-redux'
+import {ViewerState} from "../../redux"
 import {MdPause, MdPlayArrow, MdSlowMotionVideo, MdAdd, MdRemove, MdModeEdit} from 'react-icons/md'
 import StepForward from "../icons/StepForward"
 
 export default function Controls(props) {
-  let {size, running, editing, ToggleRunning, ToggleEditing, SpeedUp, SpeedDown, StepOnce} = props
-    , [showSpeedUpDown, SetShowSpeedUpDown] = useState(false)
+  let {size, colors, toggleEditing, toggleRunning, toggleShowingSpeedControls, speedUp, speedDown, stepOnce} = props
+    , running = useSelector(st => ViewerState(st).running)
+    , editing = useSelector(st => ViewerState(st).editing)
+    , showingSpeedControls = useSelector(st => ViewerState(st).showingSpeedControls)
     , ems = parseInt(size)
-    , mainStyle = MainStyle(ems)
+    , mainStyle = MainStyle(ems, colors)
     , iconProps = {
         size, // for react-icons
         width: size,
@@ -14,45 +18,45 @@ export default function Controls(props) {
       }
     , PlayPause = running ? MdPause : MdPlayArrow
     , Spacer = () => <div style={{width: (ems / 3) + 'em'}}></div>
-    , speedUpDown = showSpeedUpDown &&
+    , speedControls = showingSpeedControls &&
         <div style={{...mainStyle, display: 'flex', flexDirection: 'column', position: 'absolute', bottom: '2.3em'}}>
           <MdAdd
-            onClick={SpeedUp}
+            onClick={() => speedUp()}
             {...iconProps}
           />
           <MdRemove
-            onClick={SpeedDown}
+            onClick={() => speedDown()}
             {...iconProps}
           />
         </div>
       
   return (
     <div style={{...mainStyle, display: 'flex'}} >
-      <PlayPause onClick={ToggleRunning} {...iconProps} />
+      <PlayPause onClick={() => toggleRunning()} {...iconProps} />
       <Spacer />
-      <StepForward onClick={StepOnce} {...iconProps} />
+      <StepForward onClick={() => stepOnce()} {...iconProps} />
       <Spacer />
       <div>
         <div style={{width: size, height: size, position: 'relative'}}>
           <MdSlowMotionVideo
-            onClick={() => SetShowSpeedUpDown(!showSpeedUpDown)}
+            onClick={() => toggleShowingSpeedControls()}
             {...iconProps}
           />
-          {speedUpDown}
+          {speedControls}
         </div>
       </div>
       <Spacer />
-      <MdModeEdit onClick={ToggleEditing} {...iconProps} {...editing && {style: {color: 'red'}}} />
+      <MdModeEdit onClick={() => toggleEditing()} {...iconProps} {...editing && {style: {color: colors.controlsHighlight}}} />
     </div>
   )
 }
 
-let MainStyle = ems => ({
+let MainStyle = (size, colors) => ({
   display: 'flex',
   justifyContent: 'center',
   alignItems: 'center',
-  backgroundColor: 'rgba(50,50,50,0.95)',
-  padding: ems / 20 + 'em',
-  borderRadius: ems / 4 + 'em',
-  color: 'rgb(240,240,240)'
+  backgroundColor: colors.controlsBackground,
+  padding: size / 20 + 'em',
+  borderRadius: size / 4 + 'em',
+  color: colors.controlsForeground
 })

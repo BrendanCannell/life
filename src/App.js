@@ -1,56 +1,93 @@
-import React, {useState} from 'react'
+import React from 'react'
+import {useSelector, useDispatch, useStore} from 'react-redux'
+import {setLife, toggleShowingDrawer, ViewerState, advanceOneFrame, fitToBounds, pan, setScale, speedDown, speedUp, stepOnce, toggleCell, toggleEditing, toggleRunning, toggleShowingSpeedControls, zoom} from './redux'
 import {MdArrowDropDown, MdArrowDropUp} from 'react-icons/md'
 import InteractiveViewer from "./components/InteractiveViewer"
-import Life from 'lowlife'
-import Patterns from "./patterns/index.js"
+// import Patterns from "./patterns/index.js"
 import FPS from "./components/FPS"
+import SinglePatterns from "./patterns/index.js"
+let Patterns = [].concat(SinglePatterns, SinglePatterns)
 
-let turingMachine = Patterns.find(p => p.name === "Turing machine").locations
-  , universalTuringMachine = Patterns.find(p => p.name === "Universal Turing machine").locations
-console.log(universalTuringMachine.length)
+let colors = {
+  alive: [0, 255, 0, 255],
+  dead: [20, 20, 20, 255],
+  controlsBackground: 'rgb(240,240,240)',
+  controlsForeground: 'rgba(50,50,50,0.97)',
+  controlsHighlight: 'red'
+}
+colors.background = `rgba(${colors.dead.join()})`
 
 function App() {
-  let [initialLocations, SetInitialLocations] = useState(turingMachine || Patterns[Math.floor(Math.random() * Patterns.length)].locations)
-    , [showDrawer, SetShowDrawer] = useState(false)
-    , ToggleDrawer = () => SetShowDrawer(!showDrawer)
-    , DrawerArrow = showDrawer ? MdArrowDropDown : MdArrowDropUp
-  var minX = Infinity,
-      maxX = -Infinity,
-      minY = Infinity,
-      maxY = -Infinity
-  for (var [x, y] of initialLocations) {
-    minX = Math.min(x, minX)
-    maxX = Math.max(x, maxX)
-    minY = Math.min(y, minY)
-    maxY = Math.max(y, maxY)
-  }
-  let sizeX = maxX - minX
-    , scaleX = window.innerHeight / sizeX
-    , sizeY = maxY - minY
-    , scaleY = window.innerHeight / sizeY
-    , scale = Math.min(scaleX, scaleY) * 0.5
-    , center = {x: (maxX + minX) / 2, y: (maxY + minY) / 2}
+  let dispatch = useDispatch()
+    , showingDrawer = useSelector(st => st.showingDrawer)
+    , store = useStore()
+    , viewerActionCreators = {advanceOneFrame, fitToBounds, pan, setScale, speedDown, speedUp, stepOnce, toggleCell, toggleEditing, toggleRunning, toggleShowingDrawer, toggleShowingSpeedControls, zoom}
+    , viewerActionDispatchers = mapObj(actionCreator => payload => dispatch(actionCreator(payload)), viewerActionCreators)
+    , DrawerArrow = showingDrawer ? MdArrowDropDown : MdArrowDropUp
+    , openDrawerHeight = '90%'
+    , closedDrawerHeight = '2em'
   return (
-    <div
-      style={{height: '100%', width: '100%', display: 'flex', flexDirection: 'column', backgroundColor: 'blue'}}
-    >
+    <div style={{position: 'relative', height: '100%', width: '100%', backgroundColor: colors.background}}>
       {fps}
-      <InteractiveViewer
-        initialState={{
-          life: Life(initialLocations),
-          center,
-          scale,
-          stepsPerFrame: 1,
-          translationPerStep: {x: 0, y: 0},
-          running: false
+      <div style={{height: `calc(100% - ${closedDrawerHeight})`}}>
+        <InteractiveViewer
+          colors={colors}
+          getState={() => ViewerState(store.getState())}
+          {...viewerActionDispatchers}
+          dragContainer={window}
+        />
+      </div>
+      <div
+        style={{
+          width: '100%',
+          height: showingDrawer ? openDrawerHeight : closedDrawerHeight,
+          transition: 'height 0.25s linear 0s',
+          position: 'absolute',
+          bottom: '0px',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          backgroundColor: colors.controlsBackground
         }}
-        dragContainer={window}
-      />
-      <div style={{color: 'white', backgroundColor: 'rgb(50,50,50)'}}>
-        <div style={{height: '2em', width: '100%', display: 'flex', justifyContent: 'center'}}>
-          <DrawerArrow size='2em' color='white' onClick={() => false || ToggleDrawer} />
-        </div>
-        {/* {Patterns.map(pattern => <p onClick={() => false || SetInitialLocations(pattern.locations)}>{pattern.name}</p>)} */}
+      >
+        <DrawerArrow
+          size={closedDrawerHeight}
+          color={colors.controlsForeground}
+          onClick={() => dispatch(toggleShowingDrawer())}  
+        />
+        <ul
+          style={{
+            width: '100%',
+            height: showingDrawer ? '100%' : '0px',
+            transition: 'height 0.25s linear 0s',
+            overflowY: 'scroll',
+          }}
+        >{
+          Patterns.map((pattern, index) => {
+              return (
+                <li
+                  onClick={onClick}
+                  key={index}
+                  style={{
+                    margin: '0.3em',
+                    padding: '0.3em',
+                    fontSize: '2em',
+                    textAlign: 'center',
+                    cursor: 'default',
+                    color: colors.controlsBackground,
+                    backgroundColor: colors.controlsForeground
+                  }}
+                >
+                  {pattern.name.toUpperCase()}
+                </li>
+              )
+
+              function onClick() {
+                dispatch(setLife(pattern.locations));
+                dispatch(toggleShowingDrawer())
+              }
+          })
+        }</ul>
       </div>
     </div>
   );
@@ -75,6 +112,14 @@ function contrastShadow(size, color) {
     for (let j = -1; j <= 1; j++)
       strs.push(`${i * size}em ${j * size}em ${color}`)
   return strs.join(",")
+}
+
+function mapObj(fn, obj) {
+  let mapped = {}
+  for (let key in obj) {
+    mapped[key] = fn(obj[key], key, obj)
+  }
+  return mapped
 }
 
 export default App;
