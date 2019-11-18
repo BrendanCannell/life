@@ -21,10 +21,10 @@ let initialState = {
     life: Life(initialLocations),
     center: initialBounds.center,
     scale: null,
-    stepsPerFrame: 1/8,
+    stepsPerFrame: 1/4,
     stepsPending: 0,
     translationPerStep: {x: 0, y: 0},
-    running: false,
+    running: true,
     suspended: false,
     editing: false,
     showingSpeedControls: false,
@@ -99,20 +99,11 @@ let reducer = createReducer(initialState, {
   },
   [toggleEditing]: (st) => {
     let vst = ViewerState(st)
-    if (!vst.editing){
-      vst.editing = true
-      if (vst.running) {
-        vst.running = false
-        vst.suspended = true
-      }
+    vst.editing = !vst.editing
+    if (vst.editing) {
       vst.showingSpeedControls = false
-    } else {
-      vst.editing = false
-      if (vst.suspended) {
-        vst.suspended = false
-        vst.running = true
-      }
     }
+    UpdateSuspension(st)
   },
   [toggleRunning]: (st) => {
     let vst = ViewerState(st)
@@ -122,6 +113,7 @@ let reducer = createReducer(initialState, {
   },
   [toggleShowingDrawer]: (st) => {
     st.showingDrawer = !st.showingDrawer
+    UpdateSuspension(st)
   },
   [toggleShowingSpeedControls]: (st) => {
     let vst = ViewerState(st)
@@ -143,6 +135,18 @@ function Step(vst, count) {
     vst.lifeIteration++
   }
   vst.center = Add(vst.center, Mult(count, vst.translationPerStep))
+}
+
+function UpdateSuspension(st) {
+  let vst = ViewerState(st)
+  if (vst.suspended && !vst.editing && ! st.showingDrawer) {
+    vst.running = true;
+    vst.suspended = false;
+  }
+  else if (vst.running && (vst.editing || st.showingDrawer)) {
+    vst.running = false;
+    vst.suspended = true;
+  }
 }
 
 function BoundingRect(locations) {

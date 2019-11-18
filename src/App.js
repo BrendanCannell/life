@@ -3,16 +3,17 @@ import {useSelector, useDispatch, useStore} from 'react-redux'
 import {setLife, toggleShowingDrawer, ViewerState, advanceOneFrame, fitToBounds, pan, setScale, speedDown, speedUp, stepOnce, toggleCell, toggleEditing, toggleRunning, toggleShowingSpeedControls, zoom} from './redux'
 import {MdArrowDropDown, MdArrowDropUp} from 'react-icons/md'
 import InteractiveViewer from "./components/InteractiveViewer"
-// import Patterns from "./patterns/index.js"
+import ViewerControls from "./components/ViewerControls"
+import Patterns from "./patterns/index.js"
 import FPS from "./components/FPS"
-import SinglePatterns from "./patterns/index.js"
-let Patterns = [].concat(SinglePatterns, SinglePatterns)
+// import SinglePatterns from "./patterns/index.js"
+// let Patterns = [].concat(SinglePatterns, SinglePatterns)
 
 let colors = {
   alive: [0, 255, 0, 255],
   dead: [20, 20, 20, 255],
-  controlsBackground: 'rgb(240,240,240)',
-  controlsForeground: 'rgba(50,50,50,0.97)',
+  controlsBackground:  '#424242',
+  controlsForeground: 'white',
   controlsHighlight: 'red'
 }
 colors.background = `rgba(${colors.dead.join()})`
@@ -24,73 +25,112 @@ function App() {
     , viewerActionCreators = {advanceOneFrame, fitToBounds, pan, setScale, speedDown, speedUp, stepOnce, toggleCell, toggleEditing, toggleRunning, toggleShowingDrawer, toggleShowingSpeedControls, zoom}
     , viewerActionDispatchers = mapObj(actionCreator => payload => dispatch(actionCreator(payload)), viewerActionCreators)
     , DrawerArrow = showingDrawer ? MdArrowDropDown : MdArrowDropUp
-    , openDrawerHeight = '90%'
-    , closedDrawerHeight = '2em'
+    , drawerButtonHeight = '2em'
+    , viewerHeight = `calc(100% - ${drawerButtonHeight})`
+    , openDrawerHeight = viewerHeight
   return (
     <div style={{position: 'relative', height: '100%', width: '100%', backgroundColor: colors.background}}>
       {fps}
-      <div style={{height: `calc(100% - ${closedDrawerHeight})`}}>
+      <div style={{height: viewerHeight}}>
         <InteractiveViewer
           colors={colors}
           getState={() => ViewerState(store.getState())}
           {...viewerActionDispatchers}
           dragContainer={window}
         />
+        <Controls />
       </div>
-      <div
-        style={{
-          width: '100%',
-          height: showingDrawer ? openDrawerHeight : closedDrawerHeight,
-          transition: 'height 0.25s linear 0s',
-          position: 'absolute',
-          bottom: '0px',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          backgroundColor: colors.controlsBackground
-        }}
-      >
+      <ul className="pattern-list" style={patternListStyle()}>{
+        Patterns.map(PatternButton)
+      }</ul>
+      <div className="pattern-dropup-button" style={patternDropupStyle()} >
         <DrawerArrow
-          size={closedDrawerHeight}
+          size={drawerButtonHeight}
           color={colors.controlsForeground}
-          onClick={() => dispatch(toggleShowingDrawer())}  
+          onClick={() => dispatch(toggleShowingDrawer())}
         />
-        <ul
-          style={{
-            width: '100%',
-            height: showingDrawer ? '100%' : '0px',
-            transition: 'height 0.25s linear 0s',
-            overflowY: 'scroll',
-          }}
-        >{
-          Patterns.map((pattern, index) => {
-              return (
-                <li
-                  onClick={onClick}
-                  key={index}
-                  style={{
-                    margin: '0.3em',
-                    padding: '0.3em',
-                    fontSize: '2em',
-                    textAlign: 'center',
-                    cursor: 'default',
-                    color: colors.controlsBackground,
-                    backgroundColor: colors.controlsForeground
-                  }}
-                >
-                  {pattern.name.toUpperCase()}
-                </li>
-              )
-
-              function onClick() {
-                dispatch(setLife(pattern.locations));
-                dispatch(toggleShowingDrawer())
-              }
-          })
-        }</ul>
       </div>
     </div>
   );
+
+  function Controls() {
+    return (
+      <div
+        style={{
+          position: 'absolute',
+          width: '100%',
+          bottom: '10%',
+          display: 'flex',
+          justifyContent: 'center',
+          pointerEvents: 'none'
+        }}
+      >
+        <div style={{pointerEvents: 'auto'}}>
+          <ViewerControls
+            size="2em"
+            colors={colors}
+            mutators={viewerActionDispatchers}
+          />
+        </div>
+      </div>
+    )
+  }
+
+  function PatternButton(pattern, index) {
+    return (
+      <li
+        onClick={onClick}
+        key={index}
+        style={patternButtonStyle()}
+      >
+        {pattern.name.toUpperCase()}
+      </li>
+    )
+  
+    function onClick() {
+      dispatch(setLife(pattern.locations));
+      dispatch(toggleShowingDrawer())
+    }
+  }
+  
+  function patternListStyle() {
+    let height = showingDrawer ? openDrawerHeight : 0
+    return {
+      width: '100%',
+      position: 'relative',
+      height,
+      bottom: height,
+      background: colors.controlsBackground,
+      transition: 'height 0.5s, bottom 0.5s',
+      overflowY: 'scroll',
+    }
+  }
+
+  function patternDropupStyle() {
+    return {
+      width: '100%',
+      height: drawerButtonHeight,
+      position: 'absolute',
+      bottom: '0px',
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      backgroundColor: colors.controlsBackground
+    }
+  }
+    
+  function patternButtonStyle() {
+    return {
+      margin: '0.3em',
+      padding: '0.3em',
+      fontSize: '2em',
+      fontFamily: 'Roboto, Arial, sans-serif',
+      textAlign: 'center',
+      cursor: 'default',
+      color: colors.controlsBackground,
+      backgroundColor: colors.controlsForeground
+    }
+  }
 }
 
 let constrainChildren = {position: 'relative'}
@@ -121,5 +161,6 @@ function mapObj(fn, obj) {
   }
   return mapped
 }
+
 
 export default App;

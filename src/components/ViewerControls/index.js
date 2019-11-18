@@ -1,11 +1,11 @@
 import React, {useState} from 'react'
 import {useSelector} from 'react-redux'
 import {ViewerState} from "../../redux"
-import {MdPause, MdPlayArrow, MdSlowMotionVideo, MdAdd, MdRemove, MdModeEdit} from 'react-icons/md'
+import {MdPause, MdPlayArrow, MdSlowMotionVideo, MdAdd, MdRemove, MdModeEdit, MdMenu} from 'react-icons/md'
 import StepForward from "../icons/StepForward"
 
 export default function Controls(props) {
-  let {size, colors, toggleEditing, toggleRunning, toggleShowingSpeedControls, speedUp, speedDown, stepOnce} = props
+  let {size, colors, mutators: m} = props
     , running = useSelector(st => ViewerState(st).running)
     , editing = useSelector(st => ViewerState(st).editing)
     , showingSpeedControls = useSelector(st => ViewerState(st).showingSpeedControls)
@@ -21,32 +21,34 @@ export default function Controls(props) {
     , speedControls = showingSpeedControls &&
         <div style={{...mainStyle, display: 'flex', flexDirection: 'column', position: 'absolute', bottom: '2.3em'}}>
           <MdAdd
-            onClick={() => speedUp()}
+            onClick={() => m.speedUp()}
             {...iconProps}
           />
           <MdRemove
-            onClick={() => speedDown()}
+            onClick={() => m.speedDown()}
             {...iconProps}
           />
         </div>
       
   return (
     <div style={{...mainStyle, display: 'flex'}} >
-      <PlayPause onClick={() => toggleRunning()} {...iconProps} />
+      <PlayPause onClick={() => m.toggleRunning()} {...iconProps} />
       <Spacer />
-      <StepForward onClick={() => stepOnce()} {...iconProps} />
+      <StepForward onClick={() => m.stepOnce()} {...iconProps} />
       <Spacer />
       <div>
         <div style={{width: size, height: size, position: 'relative'}}>
           <MdSlowMotionVideo
-            onClick={() => toggleShowingSpeedControls()}
+            onClick={() => m.toggleShowingSpeedControls()}
             {...iconProps}
           />
           {speedControls}
         </div>
       </div>
       <Spacer />
-      <MdModeEdit onClick={() => toggleEditing()} {...iconProps} {...editing && {style: {color: colors.controlsHighlight}}} />
+      <MdModeEdit onClick={() => m.toggleEditing()} {...iconProps} {...editing && {style: {color: colors.controlsHighlight}}} />
+      <Spacer />
+      <MdMenu onClick={() => m.toggleShowingDrawer()} {...iconProps} />
     </div>
   )
 }

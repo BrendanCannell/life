@@ -35,20 +35,6 @@ export default function InteractiveViewer(props) {
       <div style={{position: 'absolute', height: '100%', width: '100%'}}>
         <Viewer />
       </div>
-      <div
-        style={{
-          position: 'absolute',
-          width: '100%',
-          bottom: '10%',
-          display: 'flex',
-          justifyContent: 'center',
-          pointerEvents: 'none'
-        }}
-      >
-        <div style={{pointerEvents: 'auto'}}>
-          <Controls />
-        </div>
-      </div>
     </div>
   )
 
@@ -66,9 +52,10 @@ export default function InteractiveViewer(props) {
   }
 
   function Controls() {
-    return (
-      <ViewerControls {...{size: '2em', colors, toggleRunning, toggleEditing, toggleShowingSpeedControls, speedUp, speedDown, stepOnce}} />
-    )
+    return null
+    // return (
+    //   <ViewerControls {...{size: '2em', colors, toggleRunning, toggleEditing, toggleShowingSpeedControls, speedUp, speedDown, stepOnce}} />
+    // )
   }
 
   function UpdateCanvasContainerRef(canvasContainer) {
