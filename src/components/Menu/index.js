@@ -14,11 +14,11 @@ function Menu(props) {
   return (
     <div className={'fill' + (!showingDrawer ? ' hide' : '')}>
       <div
-        className={'fill'}
+        className='fill'
         onClick={() => m.toggleShowingDrawer()}
       />
       <ul
-        className={'pattern-list'}
+        className='pattern-list'
         style={patternListStyle}
       >{
         Patterns.map(PatternButton)
@@ -28,12 +28,14 @@ function Menu(props) {
 
   function PatternButton(pattern, index) {
     return (
-      <li
-        onClick={SetPattern}
-        key={index}
-        style={patternButtonStyle}
-      >
-        {pattern.name.toUpperCase()}
+      <li>
+        <button
+          onClick={SetPattern}
+          key={index}
+          style={patternButtonStyle}
+        >
+          {pattern.name.toUpperCase()}
+        </button>
       </li>
     )
 
