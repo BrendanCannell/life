@@ -100,7 +100,6 @@ let reducer = createReducer(initialState, {
     vst.life = cellState
       ? vst.life.remove(cellLocation)
       : vst.life.add(cellLocation)
-    vst.lifeChanged = true
     vst.lifeIteration++
   },
   [toggleEditing]: (st) => {
@@ -137,7 +136,6 @@ let reducer = createReducer(initialState, {
 function Step(vst, count) {
   if (Math.floor(count) > 0) {
     vst.life = vst.life.step({count: Math.floor(count), canFree: true})
-    vst.lifeChanged = true
     vst.lifeIteration++
   }
   vst.center = Add(vst.center, Mult(count, vst.translationPerStep))
