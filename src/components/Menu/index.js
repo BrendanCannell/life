@@ -1,20 +1,24 @@
 import React, {useMemo} from 'react'
 import Patterns from "../../patterns/index.js"
+import "./index.css"
+import "../../styles/fill.css"
 
 function Menu(props) {
   let {colors, mutators: m, showingDrawer} = props
-  let patternListStyle = useMemo(PatternListStyle, [colors])
-  let patternButtonStyle = useMemo(PatternButtonStyle, [colors])
+  let patternListStyle = useMemo(() => ({backgroundColor: colors.controlsBackground}), [colors])
+  let patternButtonStyle = useMemo(() => ({
+    color: colors.controlsBackground,
+    backgroundColor: colors.controlsForeground
+  }), [colors])
 
   return (
-    <div>
+    <div className={'fill' + (!showingDrawer ? ' hide' : '')}>
       <div
-        className={!showingDrawer ? 'hide' : undefined}
-        style={fillPositionedAncestor}
+        className={'fill'}
         onClick={() => m.toggleShowingDrawer()}
       />
       <ul
-        className={'pattern-list' + (!showingDrawer ? ' hide' : '')}
+        className={'pattern-list'}
         style={patternListStyle}
       >{
         Patterns.map(PatternButton)
@@ -38,40 +42,6 @@ function Menu(props) {
       m.toggleShowingDrawer()
     }
   }
-  
-  function PatternListStyle() {
-    return {
-      position: 'absolute',
-      top: 0,
-      bottom: 0,
-      left: 0,
-      background: colors.controlsBackground,
-      transition: 'width 0.5s',
-      overflowY: 'scroll',
-      overflowX: 'hidden'
-    }
-  }
-
-  function PatternButtonStyle() {
-    return {
-      margin: '0.3em',
-      padding: '0.3em',
-      fontSize: '2em',
-      fontFamily: 'Roboto, Arial, sans-serif',
-      textAlign: 'center',
-      cursor: 'default',
-      color: colors.controlsBackground,
-      backgroundColor: colors.controlsForeground
-    }
-  }
-}
-
-let fillPositionedAncestor = {
-  position: 'absolute',
-  top: 0,
-  bottom: 0,
-  left: 0,
-  right: 0,
 }
 
 export default Menu

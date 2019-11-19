@@ -44,6 +44,7 @@ export let AdvanceFrame = st => {
 export let
     advanceOneFrame = createAction('advanceOneFrame')
   , fitToBounds = createAction('fitToBounds')
+  , initializeBounds = createAction('initializeBounds')
   , pan = createAction('pan')
   , setScale = createAction('setScale')
   , setLife = createAction('setLife')
@@ -72,6 +73,11 @@ let reducer = createReducer(initialState, {
   },
   [fitToBounds]: (st, {payload: clientBounds}) => {
     let vst = ViewerState(st)
+    Object.assign(vst, FitToBounds(clientBounds, vst.initialBounds))
+  },
+  [initializeBounds]: (st, {payload: clientBounds}) => {
+    let vst = ViewerState(st)
+    if (vst.scale) return
     Object.assign(vst, FitToBounds(clientBounds, vst.initialBounds))
   },
   [setScale]: (st, {payload: scale}) => {ViewerState(st).scale = scale},
@@ -206,7 +212,7 @@ let stateSanitizer = ({viewerState, ...rest}) => {
     let {life, ...viewerStateRest} = viewerState
     return {
       viewerState: {
-        life: `<<LIFE-${life.hash}`,
+        life: `<<LIFE-${life.hash()}>>`,
         ...viewerStateRest
       },
       ...rest

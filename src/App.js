@@ -1,6 +1,6 @@
 import React, {useCallback, useMemo} from 'react'
 import {useSelector, useDispatch, useStore} from 'react-redux'
-import {setLife, toggleShowingDrawer, ViewerState, advanceOneFrame, fitToBounds, pan, setScale, speedDown, speedUp, stepOnce, toggleCell, toggleEditing, toggleRunning, toggleShowingSpeedControls, zoom} from './redux'
+import {setLife, toggleShowingDrawer, ViewerState, advanceOneFrame, fitToBounds, initializeBounds, pan, setScale, speedDown, speedUp, stepOnce, toggleCell, toggleEditing, toggleRunning, toggleShowingSpeedControls, zoom} from './redux'
 import {MdArrowDropDown, MdArrowDropUp} from 'react-icons/md'
 import InteractiveViewer from "./components/InteractiveViewer"
 import ViewerControls from "./components/ViewerControls"
@@ -17,7 +17,7 @@ let colors = {
   controlsHighlight: 'red'
 }
 colors.background = `rgba(${colors.dead.join()})`
-let viewerActionCreators = {advanceOneFrame, fitToBounds, pan, setLife, setScale, speedDown, speedUp, stepOnce, toggleCell, toggleEditing, toggleRunning, toggleShowingDrawer, toggleShowingSpeedControls, zoom}
+let viewerActionCreators = {advanceOneFrame, fitToBounds, initializeBounds, pan, setLife, setScale, speedDown, speedUp, stepOnce, toggleCell, toggleEditing, toggleRunning, toggleShowingDrawer, toggleShowingSpeedControls, zoom}
 
 function App() {
   let dispatch = useDispatch()

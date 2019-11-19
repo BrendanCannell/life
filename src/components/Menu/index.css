@@ -1,0 +1,14 @@
+ul {
+  transition: width 0.5s;
+  overflow-y: scroll;
+  overflow-x: hidden;
+}
+
+li {
+  margin: 0.3em;
+  padding: 0.3em;
+  font-size: 2em;
+  font-family: "Roboto", Arial, sans-serif;
+  text-align: center;
+  cursor: default;
+}

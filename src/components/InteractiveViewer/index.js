@@ -2,6 +2,7 @@ import React, {useRef, useState, useEffect} from 'react'
 import {useSelector} from 'react-redux'
 import AnimatedCanvas from "../AnimatedCanvas"
 import ViewerControls from "../ViewerControls"
+import "../../styles/fill.css"
 
 let Mult = (n, v) => ({x: n * v.x, y: n * v.y})
   // , dot  = (v1, v2) => ({x: v1.x * v2.x, v1.y * v2.y})
@@ -13,7 +14,7 @@ let Mult = (n, v) => ({x: n * v.x, y: n * v.y})
 
 export default function InteractiveViewer(props) {
   let {colors, dragContainer, getState, mutators} = props
-    , {advanceOneFrame, fitToBounds, pan, setScale, toggleCell, toggleRunning, zoom} = mutators
+    , {advanceOneFrame, initializeBounds, pan, setScale, toggleCell, toggleRunning, zoom} = mutators
     , canvasContainerRef = useRef(null)
     , dragContainerRef = useRef(dragContainer || null)
     , lastTouchesRef = useRef([])
@@ -33,7 +34,7 @@ export default function InteractiveViewer(props) {
         
   return (
     <div
-      style={{position: 'absolute', left: 0, right: 0, top: 0, bottom: 0}}
+      className="fill"
       onMouseDown={HandleMouseDown}
       onWheel={HandleWheel}
       ref={UpdateCanvasContainerRef}
@@ -45,6 +46,7 @@ export default function InteractiveViewer(props) {
   function UpdateCanvasContainerRef(canvasContainer) {
     let {current} = canvasContainerRef
     if (current && canvasContainer != current) {
+      // Remove handlers on unmount
       let Remove = current.removeEventListener.bind(current)
       Remove("touchstart",  HandleTouch) 
       Remove("touchend",    HandleTouch)
@@ -53,8 +55,9 @@ export default function InteractiveViewer(props) {
       canvasContainerRef.current = null
     }
     if (canvasContainer) {
+      // Add handlers on mount, and initialize
       let {width, height, left, right, top, bottom} = canvasContainer.getBoundingClientRect()
-      if (width > 0 && height > 0) fitToBounds({width, height, left, right, top, bottom})
+      if (width > 0 && height > 0) initializeBounds({width, height, left, right, top, bottom})
       let Add = canvasContainer.addEventListener.bind(canvasContainer)
       Add("touchstart",  HandleTouch) 
       Add("touchend",    HandleTouch)
