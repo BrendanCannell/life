@@ -32,32 +32,15 @@ export default function InteractiveViewer(props) {
     })
         
   return (
-    <div style={{position: 'relative', flex: 'auto', height: '100%', width: '100%'}}>
-      <div style={{position: 'absolute', height: '100%', width: '100%'}}>
-        <Viewer />
-      </div>
+    <div
+      style={{position: 'absolute', left: 0, right: 0, top: 0, bottom: 0}}
+      onMouseDown={HandleMouseDown}
+      onWheel={HandleWheel}
+      ref={UpdateCanvasContainerRef}
+    >
+      <AnimatedCanvas onFrame={HandleFrame} />
     </div>
   )
-
-  function Viewer() {
-    return (
-      <div
-        style={{height: '100%', width: '100%'}}
-        onMouseDown={HandleMouseDown}
-        onWheel={HandleWheel}
-        ref={UpdateCanvasContainerRef}
-      >
-        <AnimatedCanvas onFrame={HandleFrame} />
-      </div>
-    )
-  }
-
-  function Controls() {
-    return null
-    // return (
-    //   <ViewerControls {...{size: '2em', colors, toggleRunning, toggleEditing, toggleShowingSpeedControls, speedUp, speedDown, stepOnce}} />
-    // )
-  }
 
   function UpdateCanvasContainerRef(canvasContainer) {
     let {current} = canvasContainerRef

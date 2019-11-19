@@ -28,7 +28,7 @@ function App() {
         [dispatch]
       )
   return (
-    <div style={{position: 'relative', height: '100%', width: '100%', backgroundColor: colors.background}}>
+    <div style={{position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, backgroundColor: colors.background}}>
       {fps}
       <InteractiveViewer
         dragContainer={window}
