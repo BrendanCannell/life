@@ -2,7 +2,7 @@ import React, {useMemo, forwardRef} from 'react'
 import "../../styles/fill.css"
 
 // A canvas with fixed dimensions and a `onFrame` function that will be called on each animation frame with the canvas's imageData and the frame's timestamp
-export default forwardRef(function AnimatedCanvas(props, ref) {
+export default function AnimatedCanvas(props) {
   let {onFrame} = props
     , dpr = window.devicePixelRatio || 1
     , pendingRequest = null
@@ -17,12 +17,6 @@ export default forwardRef(function AnimatedCanvas(props, ref) {
   return <div ref={withContainer} className="fill"></div>
 
   function withContainer(container) {
-    if (ref) {
-      if (typeof ref === 'function')
-        ref(canvas)
-      else
-        ref.current = canvas
-    }
     if (!container) { cancelRequest(); return }
     container.appendChild(canvas)
     makeRequest()
@@ -55,4 +49,4 @@ export default forwardRef(function AnimatedCanvas(props, ref) {
       timestamp
     })
   }
-})
+}
