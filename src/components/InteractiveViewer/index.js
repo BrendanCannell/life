@@ -12,7 +12,8 @@ let Mult = (n, v) => ({x: n * v.x, y: n * v.y})
   , Distance = (v1, v2) => Magnitude(Subtract(v1, v2))
 
 export default function InteractiveViewer(props) {
-  let {colors, dragContainer, getState, advanceOneFrame, fitToBounds, pan, setScale, speedDown, speedUp, stepOnce, toggleCell, toggleEditing, toggleRunning, toggleShowingSpeedControls, zoom} = props
+  let {colors, dragContainer, getState, mutators} = props
+    , {advanceOneFrame, fitToBounds, pan, setScale, toggleCell, toggleRunning, zoom} = mutators
     , canvasContainerRef = useRef(null)
     , dragContainerRef = useRef(dragContainer || null)
     , lastTouchesRef = useRef([])

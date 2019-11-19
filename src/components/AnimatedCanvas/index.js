@@ -10,10 +10,17 @@ export default forwardRef(function AnimatedCanvas(props, ref) {
     , imageData = null
     , currentLogicalWidth = null
     , currentLogicalHeight = null
+    , lastRect = null
   canvas.style.width = '100%'
   canvas.style.height = '100%'
+  // canvas.style.position = 'absolute'
+  // canvas.style.left = 0
+  // canvas.style.right = 0
+  // canvas.style.top = 0
+  // canvas.style.bottom = 0
   
   return <div ref={withContainer} style={{height: '100%', width: '100%'}}></div>
+  // return <div ref={withContainer} style={{position: 'absolute', left: 0, right: 0, top: 0, bottom: 0}}></div>
 
   function withContainer(container) {
     if (ref) {
@@ -35,6 +42,17 @@ export default forwardRef(function AnimatedCanvas(props, ref) {
   function animate(timestamp) {
     makeRequest(animate)
     let rect = canvas.getBoundingClientRect()
+    // let newRect = {}
+    // window.debugCount = window.debugCount || 0
+    // for (let k in rect) {
+    //   if (typeof rect[k] === 'number') {
+    //     newRect[k] = rect[k]
+    //   } else console.log(k, typeof rect[k])
+    // }
+    if (lastRect !== JSON.stringify(rect)) {
+      lastRect = JSON.stringify(rect)
+      console.log(rect)
+    }
     if (currentLogicalWidth !== rect.width || currentLogicalHeight !== rect.height) {
       currentLogicalWidth  = rect.width
       currentLogicalHeight = rect.height
