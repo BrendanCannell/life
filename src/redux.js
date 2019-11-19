@@ -1,32 +1,26 @@
-import {configureStore, createAction, createReducer, createSelector} from 'redux-starter-kit'
+import {configureStore, createAction, createReducer} from 'redux-starter-kit'
 import thunk from 'redux-thunk'
-import Patterns from "./patterns/index.js"
 import Life from 'lowlife'
 
 let Mult = (n, v) => ({x: n * v.x, y: n * v.y})
   , Add  = (v1, v2) => ({x: v1.x + v2.x, y: v1.y + v2.y})
   , Subtract = (v1, v2) => Add(v1, Mult(-1, v2))
-  , Magnitude = ({x, y}) => Math.sqrt(Math.pow(x, 2) + Math.pow(y, 2))
+  // , Magnitude = ({x, y}) => Math.sqrt(Math.pow(x, 2) + Math.pow(y, 2))
   , Midpoint = (v1, v2) => Mult(1/2, Add(v1, v2))
-  , Distance = (v1, v2) => Magnitude(Subtract(v1, v2))
-
-let initialLocations = Patterns.find(p => p.name === "Period-52 glider gun").locations
-let initialBounds = initialLocations.length > 0
-  ? BoundingRect(initialLocations)
-  : {center: {x: 0, y: 0}, width: 0, height: 0}
+  // , Distance = (v1, v2) => Magnitude(Subtract(v1, v2))
 
 let initialState = {
   viewerState: {
-    initialBounds,
-    life: Life(initialLocations),
-    center: initialBounds.center,
+    initialBounds: {center: {x: 0, y: 0}, width: 0, height: 0},
+    life: Life([]),
+    center: null,
     scale: null,
-    stepsPerFrame: 1/8,
+    stepsPerFrame: 1/4,
     stepsPending: 0,
     translationPerStep: {x: 0, y: 0},
     running: false,
-    suspended: false,
-    editing: false,
+    suspended: true,
+    editing: true,
     showingSpeedControls: false,
   },
   showingDrawer: false,
@@ -44,6 +38,7 @@ export let AdvanceFrame = st => {
 export let
     advanceOneFrame = createAction('advanceOneFrame')
   , fitToBounds = createAction('fitToBounds')
+  , initializeBounds = createAction('initializeBounds')
   , pan = createAction('pan')
   , setScale = createAction('setScale')
   , setLife = createAction('setLife')
@@ -74,6 +69,11 @@ let reducer = createReducer(initialState, {
     let vst = ViewerState(st)
     Object.assign(vst, FitToBounds(clientBounds, vst.initialBounds))
   },
+  [initializeBounds]: (st, {payload: clientBounds}) => {
+    let vst = ViewerState(st)
+    if (vst.scale) return
+    Object.assign(vst, FitToBounds(clientBounds, vst.initialBounds))
+  },
   [setScale]: (st, {payload: scale}) => {ViewerState(st).scale = scale},
   [setLife]: (st, {payload: locations}) => {
     let vst = ViewerState(st)
@@ -83,6 +83,9 @@ let reducer = createReducer(initialState, {
       : {center: {x: 0, y: 0}, width: 0, height: 0}
     vst.center = vst.initialBounds.center
     vst.scale = null
+    vst.running = false
+    vst.suspended = false
+    vst.editing = false
   },
   [speedDown]: (st) => {ViewerState(st).stepsPerFrame /= Math.PI/2},
   [speedUp]:   (st) => {ViewerState(st).stepsPerFrame *= Math.PI/2},
@@ -94,25 +97,15 @@ let reducer = createReducer(initialState, {
     vst.life = cellState
       ? vst.life.remove(cellLocation)
       : vst.life.add(cellLocation)
-    vst.lifeChanged = true
     vst.lifeIteration++
   },
   [toggleEditing]: (st) => {
     let vst = ViewerState(st)
-    if (!vst.editing){
-      vst.editing = true
-      if (vst.running) {
-        vst.running = false
-        vst.suspended = true
-      }
+    vst.editing = !vst.editing
+    if (vst.editing) {
       vst.showingSpeedControls = false
-    } else {
-      vst.editing = false
-      if (vst.suspended) {
-        vst.suspended = false
-        vst.running = true
-      }
     }
+    UpdateSuspension(st)
   },
   [toggleRunning]: (st) => {
     let vst = ViewerState(st)
@@ -122,6 +115,7 @@ let reducer = createReducer(initialState, {
   },
   [toggleShowingDrawer]: (st) => {
     st.showingDrawer = !st.showingDrawer
+    UpdateSuspension(st)
   },
   [toggleShowingSpeedControls]: (st) => {
     let vst = ViewerState(st)
@@ -139,10 +133,21 @@ let reducer = createReducer(initialState, {
 function Step(vst, count) {
   if (Math.floor(count) > 0) {
     vst.life = vst.life.step({count: Math.floor(count), canFree: true})
-    vst.lifeChanged = true
     vst.lifeIteration++
   }
   vst.center = Add(vst.center, Mult(count, vst.translationPerStep))
+}
+
+function UpdateSuspension(st) {
+  let vst = ViewerState(st)
+  if (vst.suspended && !vst.editing && ! st.showingDrawer) {
+    vst.running = true;
+    vst.suspended = false;
+  }
+  else if (vst.running && (vst.editing || st.showingDrawer)) {
+    vst.running = false;
+    vst.suspended = true;
+  }
 }
 
 function BoundingRect(locations) {
@@ -202,7 +207,7 @@ let stateSanitizer = ({viewerState, ...rest}) => {
     let {life, ...viewerStateRest} = viewerState
     return {
       viewerState: {
-        life: `<<LIFE-${life.hash}`,
+        life: `<<LIFE-${life.hash()}>>`,
         ...viewerStateRest
       },
       ...rest

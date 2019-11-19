@@ -1,10 +1,8 @@
-import React, {useRef, useState, useEffect} from 'react'
-import {useSelector} from 'react-redux'
+import React, {useRef, useEffect} from 'react'
 import AnimatedCanvas from "../AnimatedCanvas"
-import ViewerControls from "../ViewerControls"
+import "../../styles/fill.css"
 
 let Mult = (n, v) => ({x: n * v.x, y: n * v.y})
-  // , dot  = (v1, v2) => ({x: v1.x * v2.x, v1.y * v2.y})
   , Add  = (v1, v2) => ({x: v1.x + v2.x, y: v1.y + v2.y})
   , Subtract = (v1, v2) => Add(v1, Mult(-1, v2))
   , Magnitude = ({x, y}) => Math.sqrt(Math.pow(x, 2) + Math.pow(y, 2))
@@ -12,7 +10,8 @@ let Mult = (n, v) => ({x: n * v.x, y: n * v.y})
   , Distance = (v1, v2) => Magnitude(Subtract(v1, v2))
 
 export default function InteractiveViewer(props) {
-  let {colors, dragContainer, getState, advanceOneFrame, fitToBounds, pan, setScale, speedDown, speedUp, stepOnce, toggleCell, toggleEditing, toggleRunning, toggleShowingSpeedControls, zoom} = props
+  let {colors, dragContainer, getState, mutators} = props
+    , {advanceOneFrame, initializeBounds, pan, setScale, toggleCell, toggleRunning, zoom} = mutators
     , canvasContainerRef = useRef(null)
     , dragContainerRef = useRef(dragContainer || null)
     , lastTouchesRef = useRef([])
@@ -31,49 +30,20 @@ export default function InteractiveViewer(props) {
     })
         
   return (
-    <div style={{position: 'relative', flex: 'auto', height: '100%', width: '100%'}}>
-      <div style={{position: 'absolute', height: '100%', width: '100%'}}>
-        <Viewer />
-      </div>
-      <div
-        style={{
-          position: 'absolute',
-          width: '100%',
-          bottom: '10%',
-          display: 'flex',
-          justifyContent: 'center',
-          pointerEvents: 'none'
-        }}
-      >
-        <div style={{pointerEvents: 'auto'}}>
-          <Controls />
-        </div>
-      </div>
+    <div
+      className="fill"
+      onMouseDown={HandleMouseDown}
+      onWheel={HandleWheel}
+      ref={UpdateCanvasContainerRef}
+    >
+      <AnimatedCanvas onFrame={HandleFrame} />
     </div>
   )
 
-  function Viewer() {
-    return (
-      <div
-        style={{height: '100%', width: '100%'}}
-        onMouseDown={HandleMouseDown}
-        onWheel={HandleWheel}
-        ref={UpdateCanvasContainerRef}
-      >
-        <AnimatedCanvas onFrame={HandleFrame} />
-      </div>
-    )
-  }
-
-  function Controls() {
-    return (
-      <ViewerControls {...{size: '2em', colors, toggleRunning, toggleEditing, toggleShowingSpeedControls, speedUp, speedDown, stepOnce}} />
-    )
-  }
-
   function UpdateCanvasContainerRef(canvasContainer) {
     let {current} = canvasContainerRef
-    if (current && canvasContainer != current) {
+    if (current && canvasContainer !== current) {
+      // Remove handlers on unmount
       let Remove = current.removeEventListener.bind(current)
       Remove("touchstart",  HandleTouch) 
       Remove("touchend",    HandleTouch)
@@ -82,8 +52,9 @@ export default function InteractiveViewer(props) {
       canvasContainerRef.current = null
     }
     if (canvasContainer) {
+      // Add handlers on mount, and initialize
       let {width, height, left, right, top, bottom} = canvasContainer.getBoundingClientRect()
-      if (width > 0 && height > 0) fitToBounds({width, height, left, right, top, bottom})
+      if (width > 0 && height > 0) initializeBounds({width, height, left, right, top, bottom})
       let Add = canvasContainer.addEventListener.bind(canvasContainer)
       Add("touchstart",  HandleTouch) 
       Add("touchend",    HandleTouch)
@@ -96,7 +67,7 @@ export default function InteractiveViewer(props) {
 
   function UpdateDragContainerRef(dragContainer) {
     let {current} = dragContainerRef
-    if (current && dragContainer != current) {
+    if (current && dragContainer !== current) {
       let Remove = current.removeEventListener.bind(current)
       Remove("keyup", HandleKey)
       dragContainerRef.current = null
@@ -264,15 +235,12 @@ export default function InteractiveViewer(props) {
   function HandleMouseUp(event) {
     let mouseDown = mouseDownRef.current
     if (!mouseDown) return
-    let {clientX, clientY, timeStamp} = event
+    let {clientX, clientY} = event
       , grid = GridCoordinates({x: clientX, y: clientY})
       , movementDistanceLimit = 0
       , movementDistance = Distance(grid, mouseDown.grid)
       , withinMovementDistanceLimit = movementDistance <= movementDistanceLimit
-      , mouseDownTimeLimit = 100
-      , mouseDownTime = timeStamp - mouseDown.timeStamp
-      , withinMouseDownTimeLimit = mouseDownTime <= mouseDownTimeLimit
-      , isClick = withinMovementDistanceLimit && withinMouseDownTimeLimit
+      , isClick = withinMovementDistanceLimit
     if (isClick) HandleClick(event)
     CleanupMouseDown()
   }
@@ -306,5 +274,3 @@ export default function InteractiveViewer(props) {
     return {v0, v1, left, right, top, bottom, center, width, height}
   }
 }
-
-let colors = {alive: [0, 255, 0, 255], dead: [20, 20, 20, 255]}
