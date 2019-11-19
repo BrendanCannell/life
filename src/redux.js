@@ -1,32 +1,26 @@
-import {configureStore, createAction, createReducer, createSelector} from 'redux-starter-kit'
+import {configureStore, createAction, createReducer} from 'redux-starter-kit'
 import thunk from 'redux-thunk'
-import Patterns from "./patterns/index.js"
 import Life from 'lowlife'
 
 let Mult = (n, v) => ({x: n * v.x, y: n * v.y})
   , Add  = (v1, v2) => ({x: v1.x + v2.x, y: v1.y + v2.y})
   , Subtract = (v1, v2) => Add(v1, Mult(-1, v2))
-  , Magnitude = ({x, y}) => Math.sqrt(Math.pow(x, 2) + Math.pow(y, 2))
+  // , Magnitude = ({x, y}) => Math.sqrt(Math.pow(x, 2) + Math.pow(y, 2))
   , Midpoint = (v1, v2) => Mult(1/2, Add(v1, v2))
-  , Distance = (v1, v2) => Magnitude(Subtract(v1, v2))
-
-let initialLocations = Patterns.find(p => p.name === "Period-52 glider gun").locations
-let initialBounds = initialLocations.length > 0
-  ? BoundingRect(initialLocations)
-  : {center: {x: 0, y: 0}, width: 0, height: 0}
+  // , Distance = (v1, v2) => Magnitude(Subtract(v1, v2))
 
 let initialState = {
   viewerState: {
-    initialBounds,
-    life: Life(initialLocations),
-    center: initialBounds.center,
+    initialBounds: {center: {x: 0, y: 0}, width: 0, height: 0},
+    life: Life([]),
+    center: null,
     scale: null,
     stepsPerFrame: 1/4,
     stepsPending: 0,
     translationPerStep: {x: 0, y: 0},
-    running: true,
-    suspended: false,
-    editing: false,
+    running: false,
+    suspended: true,
+    editing: true,
     showingSpeedControls: false,
   },
   showingDrawer: false,
@@ -89,6 +83,9 @@ let reducer = createReducer(initialState, {
       : {center: {x: 0, y: 0}, width: 0, height: 0}
     vst.center = vst.initialBounds.center
     vst.scale = null
+    vst.running = false
+    vst.suspended = false
+    vst.editing = false
   },
   [speedDown]: (st) => {ViewerState(st).stepsPerFrame /= Math.PI/2},
   [speedUp]:   (st) => {ViewerState(st).stepsPerFrame *= Math.PI/2},

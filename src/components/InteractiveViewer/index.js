@@ -1,11 +1,8 @@
-import React, {useRef, useState, useEffect} from 'react'
-import {useSelector} from 'react-redux'
+import React, {useRef, useEffect} from 'react'
 import AnimatedCanvas from "../AnimatedCanvas"
-import ViewerControls from "../ViewerControls"
 import "../../styles/fill.css"
 
 let Mult = (n, v) => ({x: n * v.x, y: n * v.y})
-  // , dot  = (v1, v2) => ({x: v1.x * v2.x, v1.y * v2.y})
   , Add  = (v1, v2) => ({x: v1.x + v2.x, y: v1.y + v2.y})
   , Subtract = (v1, v2) => Add(v1, Mult(-1, v2))
   , Magnitude = ({x, y}) => Math.sqrt(Math.pow(x, 2) + Math.pow(y, 2))
@@ -45,7 +42,7 @@ export default function InteractiveViewer(props) {
 
   function UpdateCanvasContainerRef(canvasContainer) {
     let {current} = canvasContainerRef
-    if (current && canvasContainer != current) {
+    if (current && canvasContainer !== current) {
       // Remove handlers on unmount
       let Remove = current.removeEventListener.bind(current)
       Remove("touchstart",  HandleTouch) 
@@ -70,7 +67,7 @@ export default function InteractiveViewer(props) {
 
   function UpdateDragContainerRef(dragContainer) {
     let {current} = dragContainerRef
-    if (current && dragContainer != current) {
+    if (current && dragContainer !== current) {
       let Remove = current.removeEventListener.bind(current)
       Remove("keyup", HandleKey)
       dragContainerRef.current = null
@@ -238,15 +235,12 @@ export default function InteractiveViewer(props) {
   function HandleMouseUp(event) {
     let mouseDown = mouseDownRef.current
     if (!mouseDown) return
-    let {clientX, clientY, timeStamp} = event
+    let {clientX, clientY} = event
       , grid = GridCoordinates({x: clientX, y: clientY})
       , movementDistanceLimit = 0
       , movementDistance = Distance(grid, mouseDown.grid)
       , withinMovementDistanceLimit = movementDistance <= movementDistanceLimit
-      , mouseDownTimeLimit = 100
-      , mouseDownTime = timeStamp - mouseDown.timeStamp
-      , withinMouseDownTimeLimit = mouseDownTime <= mouseDownTimeLimit
-      , isClick = withinMovementDistanceLimit && withinMouseDownTimeLimit
+      , isClick = withinMovementDistanceLimit
     if (isClick) HandleClick(event)
     CleanupMouseDown()
   }
@@ -280,5 +274,3 @@ export default function InteractiveViewer(props) {
     return {v0, v1, left, right, top, bottom, center, width, height}
   }
 }
-
-let colors = {alive: [0, 255, 0, 255], dead: [20, 20, 20, 255]}

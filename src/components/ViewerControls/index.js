@@ -1,4 +1,4 @@
-import React, {useState} from 'react'
+import React from 'react'
 import {useSelector} from 'react-redux'
 import {ViewerState} from "../../redux"
 import {MdPause, MdPlayArrow, MdSlowMotionVideo, MdAdd, MdRemove, MdModeEdit, MdMenu} from 'react-icons/md'

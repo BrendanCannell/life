@@ -1,7 +1,6 @@
-import React, {useCallback, useMemo} from 'react'
+import React, {useMemo} from 'react'
 import {useSelector, useDispatch, useStore} from 'react-redux'
 import {setLife, toggleShowingDrawer, ViewerState, advanceOneFrame, fitToBounds, initializeBounds, pan, setScale, speedDown, speedUp, stepOnce, toggleCell, toggleEditing, toggleRunning, toggleShowingSpeedControls, zoom} from './redux'
-import {MdArrowDropDown, MdArrowDropUp} from 'react-icons/md'
 import InteractiveViewer from "./components/InteractiveViewer"
 import ViewerControls from "./components/ViewerControls"
 import Menu from "./components/Menu"
@@ -63,8 +62,6 @@ function App() {
   }
 }
 
-let constrainChildren = {position: 'relative'}
-
 let fps =
   <div style={{
     position: 'fixed',
@@ -86,7 +83,7 @@ function contrastShadow(size, color) {
 
 function mapObj(fn, obj) {
   let mapped = {}
-  for (let key in obj) {
+  for (var key in obj) {
     mapped[key] = fn(obj[key], key, obj)
   }
   return mapped

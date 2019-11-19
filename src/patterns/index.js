@@ -46,6 +46,10 @@ let fromRLE = str => {
 
 export default [
   {
+    name: "Empty grid",
+    locations: []
+  },
+  {
     name: "Gosper glider gun",
     locations: fromPlaintext(`
 ........................O........... 

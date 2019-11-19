@@ -1,4 +1,4 @@
-import React, {useMemo, forwardRef} from 'react'
+import React, {useMemo} from 'react'
 import "../../styles/fill.css"
 
 // A canvas with fixed dimensions and a `onFrame` function that will be called on each animation frame with the canvas's imageData and the frame's timestamp
