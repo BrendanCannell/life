@@ -11,7 +11,6 @@ let Mult = (n, v) => ({x: n * v.x, y: n * v.y})
 
 let initialState = {
   viewerState: {
-    initialBounds: {center: {x: 0, y: 0}, width: 0, height: 0},
     life: Life([]),
     center: null,
     scale: null,
@@ -66,13 +65,11 @@ let reducer = createReducer(initialState, {
     vst.center = Add(movement, vst.center)
   },
   [fitToBounds]: (st, {payload: clientBounds}) => {
-    let vst = ViewerState(st)
-    Object.assign(vst, FitToBounds(clientBounds, vst.initialBounds))
+    FitToBounds(st, clientBounds)
   },
   [initializeBounds]: (st, {payload: clientBounds}) => {
-    let vst = ViewerState(st)
-    if (vst.scale) return
-    Object.assign(vst, FitToBounds(clientBounds, vst.initialBounds))
+    if (ViewerState(st).scale) return
+    FitToBounds(st, clientBounds)
   },
   [setScale]: (st, {payload: scale}) => {ViewerState(st).scale = scale},
   [setLife]: (st, {payload: locations}) => {
@@ -170,14 +167,15 @@ function BoundingRect(locations) {
   return {bottom, top, left, right, bottomright, topleft, width, height, center}
 }
 
-function FitToBounds(clientBounds, locationBounds) {
-  let center = locationBounds.center
-    , width = Math.max(locationBounds.width * 1.2, 10)
-    , height = Math.max(locationBounds.height * 1.2, 10)
-    , scaleX = clientBounds.width / width
+function FitToBounds(st, clientBounds) {
+  let vst = ViewerState(st)
+    , gridBounds = vst.life.bounds() || {}
+    , width  = Math.max((gridBounds.width  || 0) * 1.2, 10)
+    , height = Math.max((gridBounds.height || 0) * 1.2, 10)
+    , scaleX = clientBounds.width  / width
     , scaleY = clientBounds.height / height
-    , scale = Math.min(scaleX, scaleY)
-  return {scale, center}
+  vst.center = gridBounds.center || {x: 0, y: 0}
+  vst.scale = Math.min(scaleX, scaleY)
 }
 
 
