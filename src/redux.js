@@ -6,12 +6,13 @@ let Mult = (n, v) => ({x: n * v.x, y: n * v.y})
   , Add  = (v1, v2) => ({x: v1.x + v2.x, y: v1.y + v2.y})
   , Subtract = (v1, v2) => Add(v1, Mult(-1, v2))
   // , Magnitude = ({x, y}) => Math.sqrt(Math.pow(x, 2) + Math.pow(y, 2))
-  , Midpoint = (v1, v2) => Mult(1/2, Add(v1, v2))
+  // , Midpoint = (v1, v2) => Mult(1/2, Add(v1, v2))
   // , Distance = (v1, v2) => Magnitude(Subtract(v1, v2))
 
 let initialState = {
   viewerState: {
     life: Life([]),
+    canvasContainer: null,
     center: null,
     scale: null,
     stepsPerFrame: 1/4,
@@ -49,6 +50,7 @@ export let
   , toggleRunning = createAction('toggleRunning')
   , toggleShowingDrawer = createAction('toggleShowingDrawer')
   , toggleShowingSpeedControls = createAction('toggleShowingSpeedControls')
+  , updateCanvasContainer = createAction('updateCanvasContainer')
   , zoom = createAction('zoom')
 
 let reducer = createReducer(initialState, {
@@ -64,25 +66,19 @@ let reducer = createReducer(initialState, {
     let vst = ViewerState(st)
     vst.center = Add(movement, vst.center)
   },
-  [fitToBounds]: (st, {payload: clientBounds}) => {
-    FitToBounds(st, clientBounds)
-  },
-  [initializeBounds]: (st, {payload: clientBounds}) => {
-    if (ViewerState(st).scale) return
-    FitToBounds(st, clientBounds)
+  [fitToBounds]: (st) => {
+    FitToBounds(ViewerState(st))
   },
   [setScale]: (st, {payload: scale}) => {ViewerState(st).scale = scale},
   [setLife]: (st, {payload: locations}) => {
     let vst = ViewerState(st)
     vst.life = Life(locations)
-    vst.initialBounds = locations.length > 0
-      ? BoundingRect(locations)
-      : {center: {x: 0, y: 0}, width: 0, height: 0}
-    vst.center = vst.initialBounds.center
-    vst.scale = null
     vst.running = false
     vst.suspended = false
     vst.editing = false
+    if (vst.canvasContainer) {
+      FitToBounds(vst)
+    }
   },
   [speedDown]: (st) => {ViewerState(st).stepsPerFrame /= Math.PI/2},
   [speedUp]:   (st) => {ViewerState(st).stepsPerFrame *= Math.PI/2},
@@ -118,6 +114,14 @@ let reducer = createReducer(initialState, {
     let vst = ViewerState(st)
     vst.showingSpeedControls = !vst.showingSpeedControls
   },
+  [updateCanvasContainer]: (st, {payload: canvasContainer}) => {
+    let vst = ViewerState(st)
+    let oldCanvasContainer = vst.canvasContainer
+    vst.canvasContainer = canvasContainer
+    if (canvasContainer && !oldCanvasContainer) {
+      FitToBounds(vst)
+    }
+  },
   [zoom]: (st, {payload: {fixedPoint, scaleFactor}}) => {
     let vst = ViewerState(st)
     let centerToFixed = Subtract(fixedPoint, vst.center)
@@ -147,29 +151,9 @@ function UpdateSuspension(st) {
   }
 }
 
-function BoundingRect(locations) {
-  if (locations.length === 0) throw Error("Expected non-empty locations array")
-  var left = Infinity
-  var right = -Infinity
-  var bottom = Infinity
-  var top = -Infinity
-  for (var [x, y] of locations) {
-    left = Math.min(x, left)
-    right = Math.max(x, right)
-    bottom = Math.min(y, bottom)
-    top = Math.max(y, top)
-  }
-  let topleft = {x: left, y: top}
-    , bottomright = {x: right, y: bottom}
-    , width = right - left
-    , height = top - bottom
-    , center = Midpoint(topleft, bottomright)
-  return {bottom, top, left, right, bottomright, topleft, width, height, center}
-}
-
-function FitToBounds(st, clientBounds) {
-  let vst = ViewerState(st)
-    , gridBounds = vst.life.bounds() || {}
+function FitToBounds(vst) {
+  let clientBounds = vst.canvasContainer.getBoundingClientRect()
+    , gridBounds = vst.life.boundingRect() || {}
     , width  = Math.max((gridBounds.width  || 0) * 1.2, 10)
     , height = Math.max((gridBounds.height || 0) * 1.2, 10)
     , scaleX = clientBounds.width  / width
@@ -198,14 +182,15 @@ function FitToBounds(st, clientBounds) {
 // })
 
 let actionSanitizer = action =>
-  action.type === setLife.toString()
-    ? {...action, locations: '<<LOCATIONS_ARRAY>>'}
-    : action
+    action.type === setLife.toString()               ? {...action, payload: '<<LOCATIONS_ARRAY>>'}
+  : action.type === updateCanvasContainer.toString() ? {...action, payload: '<<CANVAS_CONTAINER>>'}
+  : action
 let stateSanitizer = ({viewerState, ...rest}) => {
-    let {life, ...viewerStateRest} = viewerState
+    let {life, canvasContainer, ...viewerStateRest} = viewerState
     return {
       viewerState: {
-        life: `<<LIFE-${life.hash()}>>`,
+        life: life && `<<LIFE-${life.hash()}>>`,
+        canvasContainer: canvasContainer && '<<CANVAS_CONTAINER>>',
         ...viewerStateRest
       },
       ...rest

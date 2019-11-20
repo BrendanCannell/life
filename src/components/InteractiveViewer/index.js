@@ -10,8 +10,7 @@ let Mult = (n, v) => ({x: n * v.x, y: n * v.y})
   , Distance = (v1, v2) => Magnitude(Subtract(v1, v2))
 
 export default function InteractiveViewer(props) {
-  let {colors, dragContainer, getState, mutators} = props
-    , {advanceOneFrame, initializeBounds, pan, setScale, toggleCell, toggleRunning, zoom} = mutators
+  let {colors, dragContainer, getState, mutators: m} = props
     , canvasContainerRef = useRef(null)
     , dragContainerRef = useRef(dragContainer || null)
     , lastTouchesRef = useRef([])
@@ -41,6 +40,7 @@ export default function InteractiveViewer(props) {
   )
 
   function UpdateCanvasContainerRef(canvasContainer) {
+    m.updateCanvasContainer(canvasContainer)
     let {current} = canvasContainerRef
     if (current && canvasContainer !== current) {
       // Remove handlers on unmount
@@ -52,9 +52,7 @@ export default function InteractiveViewer(props) {
       canvasContainerRef.current = null
     }
     if (canvasContainer) {
-      // Add handlers on mount, and initialize
-      let {width, height, left, right, top, bottom} = canvasContainer.getBoundingClientRect()
-      if (width > 0 && height > 0) initializeBounds({width, height, left, right, top, bottom})
+      // Add handlers on mount
       let Add = canvasContainer.addEventListener.bind(canvasContainer)
       Add("touchstart",  HandleTouch) 
       Add("touchend",    HandleTouch)
@@ -80,7 +78,7 @@ export default function InteractiveViewer(props) {
   }
 
   function HandleKey(event) {
-    if (event.key === ' ') toggleRunning()
+    if (event.key === ' ') m.toggleRunning()
   }
 
   function HandleFrame({context, imageData}) {
@@ -98,7 +96,7 @@ export default function InteractiveViewer(props) {
     lastViewport = viewport
     lastImageData = imageData
     lastLifeHash = life.hash()
-    if (running) advanceOneFrame()
+    if (running) m.advanceOneFrame()
   }
 
   // TODO debouncing
@@ -106,7 +104,7 @@ export default function InteractiveViewer(props) {
     let scaleFactor = ScaleFactor(event.deltaY || 0)
       , client = {x: event.clientX, y: event.clientY}
       , fixedPoint = GridCoordinates(client)
-    zoom({scaleFactor, fixedPoint})
+    m.zoom({scaleFactor, fixedPoint})
 
     function ScaleFactor(deltaY) {
       let c = 2
@@ -118,7 +116,7 @@ export default function InteractiveViewer(props) {
     if (getState().editing) {
       let client = {x: event.clientX, y: event.clientY}
         , grid = GridCoordinates(client)
-      toggleCell(grid)
+      m.toggleCell(grid)
     }
   }
 
@@ -184,12 +182,12 @@ export default function InteractiveViewer(props) {
   
   function HandleTap(touch) {
     if (getState().editing)
-      toggleCell(touch.grid)
+      m.toggleCell(touch.grid)
   }
 
   function HandleDrag(touch) {
     let movement = Subtract(touch.initial.grid, touch.grid)
-    pan(movement)
+    m.pan(movement)
   }
 
   function HandlePinch(touch1, touch2) {
@@ -198,8 +196,8 @@ export default function InteractiveViewer(props) {
       , movement = Subtract(initialTouchCenter, currentTouchCenter)
       , currentClientDistance = Distance(touch1.client, touch2.client)
       , initialGridDistance = Distance(touch1.initial.grid, touch2.initial.grid)
-    setScale(currentClientDistance / initialGridDistance)
-    pan(movement)
+    m.setScale(currentClientDistance / initialGridDistance)
+    m.pan(movement)
   }
 
   function HandleMouseDown(event) {
@@ -229,7 +227,7 @@ export default function InteractiveViewer(props) {
     if (clientMovement < dragThreshold) return
     let grid = GridCoordinates(client)
       , gridMovement = Subtract(mouseDown.grid, grid)
-    pan(gridMovement)
+    m.pan(gridMovement)
   }
 
   function HandleMouseUp(event) {

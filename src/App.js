@@ -1,6 +1,6 @@
 import React, {useMemo} from 'react'
 import {useSelector, useDispatch, useStore} from 'react-redux'
-import {setLife, toggleShowingDrawer, ViewerState, advanceOneFrame, fitToBounds, initializeBounds, pan, setScale, speedDown, speedUp, stepOnce, toggleCell, toggleEditing, toggleRunning, toggleShowingSpeedControls, zoom} from './redux'
+import {setLife, toggleShowingDrawer, ViewerState, advanceOneFrame, fitToBounds, initializeBounds, pan, setScale, speedDown, speedUp, stepOnce, toggleCell, toggleEditing, toggleRunning, toggleShowingSpeedControls, updateCanvasContainer, zoom} from './redux'
 import InteractiveViewer from "./components/InteractiveViewer"
 import ViewerControls from "./components/ViewerControls"
 import Menu from "./components/Menu"
@@ -16,7 +16,7 @@ let colors = {
   controlsHighlight: 'red'
 }
 colors.background = `rgba(${colors.dead.join()})`
-let viewerActionCreators = {advanceOneFrame, fitToBounds, initializeBounds, pan, setLife, setScale, speedDown, speedUp, stepOnce, toggleCell, toggleEditing, toggleRunning, toggleShowingDrawer, toggleShowingSpeedControls, zoom}
+let viewerActionCreators = {advanceOneFrame, fitToBounds, initializeBounds, pan, setLife, setScale, speedDown, speedUp, stepOnce, toggleCell, toggleEditing, toggleRunning, toggleShowingDrawer, toggleShowingSpeedControls, updateCanvasContainer, zoom}
 
 function App() {
   let dispatch = useDispatch()

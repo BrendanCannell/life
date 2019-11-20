@@ -1,7 +1,7 @@
 import React from 'react'
 import {useSelector} from 'react-redux'
 import {ViewerState} from "../../redux"
-import {MdPause, MdPlayArrow, MdSlowMotionVideo, MdAdd, MdRemove, MdModeEdit, MdMenu} from 'react-icons/md'
+import {MdGpsFixed, MdPause, MdPlayArrow, MdSlowMotionVideo, MdAdd, MdRemove, MdModeEdit, MdMenu} from 'react-icons/md'
 import StepForward from "../icons/StepForward"
 
 export default function Controls(props) {
@@ -47,6 +47,8 @@ export default function Controls(props) {
       </div>
       <Spacer />
       <MdModeEdit onClick={() => m.toggleEditing()} {...iconProps} {...editing && {style: {color: colors.controlsHighlight}}} />
+      <Spacer />
+      <MdGpsFixed onClick={() => m.fitToBounds()} />
       <Spacer />
       <MdMenu onClick={() => m.toggleShowingDrawer()} {...iconProps} />
     </div>
