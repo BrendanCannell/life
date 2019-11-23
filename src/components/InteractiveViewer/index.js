@@ -113,14 +113,6 @@ export default function InteractiveViewer(props) {
     }
   }
 
-  function HandleClick(event) {
-    if (getState().editing) {
-      let client = {x: event.clientX, y: event.clientY}
-        , grid = GridCoordinates(client)
-      m.toggleCell(grid)
-    }
-  }
-
   function HandleTouch(event) {
     event.preventDefault()
     let eventTouches = EventTouches(event)
@@ -207,6 +199,7 @@ export default function InteractiveViewer(props) {
     mouseDownRef.current = {
       client,
       grid: GridCoordinates(client),
+      hasDragged: false,
       timeStamp
     }
     if (dragContainer) for (var key in mouseHandlers)
@@ -226,22 +219,24 @@ export default function InteractiveViewer(props) {
       , clientMovement = Distance(client, mouseDown.client)
       , dragThreshold = 3
     if (clientMovement < dragThreshold) return
+    mouseDownRef.current.hasDragged = true
     let grid = GridCoordinates(client)
       , gridMovement = Subtract(mouseDown.grid, grid)
     m.pan(gridMovement)
   }
 
   function HandleMouseUp(event) {
-    let mouseDown = mouseDownRef.current
-    if (!mouseDown) return
-    let {clientX, clientY} = event
-      , grid = GridCoordinates({x: clientX, y: clientY})
-      , movementDistanceLimit = 0
-      , movementDistance = Distance(grid, mouseDown.grid)
-      , withinMovementDistanceLimit = movementDistance <= movementDistanceLimit
-      , isClick = withinMovementDistanceLimit
-    if (isClick) HandleClick(event)
+    if (!mouseDownRef.current) return
+    if (!mouseDownRef.current.hasDragged) HandleClick(event)
     CleanupMouseDown()
+  }
+
+  function HandleClick(event) {
+    if (getState().editing) {
+      let client = {x: event.clientX, y: event.clientY}
+        , grid = GridCoordinates(client)
+      m.toggleCell(grid)
+    }
   }
 
   function GridCoordinates({x: clientX, y: clientY}) {
