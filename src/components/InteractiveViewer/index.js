@@ -1,6 +1,7 @@
 import React, {useRef, useEffect} from 'react'
 import AnimatedCanvas from "../AnimatedCanvas"
 import "../../styles/fill.css"
+import * as L from 'lowlife'
 
 let Mult = (n, v) => ({x: n * v.x, y: n * v.y})
   , Add  = (v1, v2) => ({x: v1.x + v2.x, y: v1.y + v2.y})
@@ -87,15 +88,15 @@ export default function InteractiveViewer(props) {
     let viewport = CurrentViewport()
       , viewportChanged = JSON.stringify(viewport) !== JSON.stringify(lastViewport)
       , imageDataChanged = imageData !== lastImageData
-      , lifeChanged = life.hash() !== lastLifeHash
+      , lifeChanged = life.hash !== lastLifeHash
       , shouldRedraw = viewportChanged || imageDataChanged || lifeChanged
     if (imageData && shouldRedraw) {
-      life.render({imageData, viewport, colors})
+      L.Render(life, {imageData, viewport, colors})
       context.putImageData(imageData, 0, 0)
     }
     lastViewport = viewport
     lastImageData = imageData
-    lastLifeHash = life.hash()
+    lastLifeHash = life.hash
     if (running) m.advanceOneFrame()
   }
 

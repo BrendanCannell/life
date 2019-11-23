@@ -1,6 +1,6 @@
 import {configureStore, createAction, createReducer} from 'redux-starter-kit'
 import thunk from 'redux-thunk'
-import Life from 'lowlife'
+import * as L from 'lowlife'
 
 let Mult = (n, v) => ({x: n * v.x, y: n * v.y})
   , Add  = (v1, v2) => ({x: v1.x + v2.x, y: v1.y + v2.y})
@@ -11,7 +11,7 @@ let Mult = (n, v) => ({x: n * v.x, y: n * v.y})
 
 let initialState = {
   viewerState: {
-    life: Life([]),
+    life: L.Empty(),
     canvasContainer: null,
     center: null,
     scale: null,
@@ -72,7 +72,7 @@ let reducer = createReducer(initialState, {
   [setScale]: (st, {payload: scale}) => {ViewerState(st).scale = scale},
   [setLife]: (st, {payload: locations}) => {
     let vst = ViewerState(st)
-    vst.life = Life(locations)
+    vst.life = L.FromLiving(locations)
     vst.running = false
     vst.suspended = false
     vst.editing = false
@@ -86,11 +86,8 @@ let reducer = createReducer(initialState, {
   [toggleCell]: (st, {payload: {x, y}}) => {
     let vst = ViewerState(st)
       , cellLocation = [x, y].map(Math.floor)
-      , cellState = vst.life.has(cellLocation)
-    vst.life = cellState
-      ? vst.life.remove(cellLocation)
-      : vst.life.add(cellLocation)
-    vst.lifeIteration++
+      , cellState = L.Has(vst.life, cellLocation)
+    vst.life = L.Set(vst.life, cellLocation, !cellState, {canFree: true})
   },
   [toggleEditing]: (st) => {
     let vst = ViewerState(st)
@@ -132,11 +129,10 @@ let reducer = createReducer(initialState, {
 })
 
 function Step(vst, count) {
-  if (Math.floor(count) > 0) {
-    vst.life = vst.life.step({count: Math.floor(count), canFree: true})
-    vst.lifeIteration++
-  }
   vst.center = Add(vst.center, Mult(count, vst.translationPerStep))
+  for (count = Math.floor(count); count > 0; count--) {
+    vst.life = L.Step(vst.life, {canFree: true})
+  }
 }
 
 function UpdateSuspension(st) {
@@ -153,7 +149,7 @@ function UpdateSuspension(st) {
 
 function FitToBounds(vst) {
   let clientBounds = vst.canvasContainer.getBoundingClientRect()
-    , gridBounds = vst.life.boundingRect() || {}
+    , gridBounds = L.BoundingRect(vst.life) || {}
     , width  = Math.max((gridBounds.width  || 0) * 1.2, 10)
     , height = Math.max((gridBounds.height || 0) * 1.2, 10)
     , scaleX = clientBounds.width  / width
@@ -189,7 +185,7 @@ let stateSanitizer = ({viewerState, ...rest}) => {
     let {life, canvasContainer, ...viewerStateRest} = viewerState
     return {
       viewerState: {
-        life: life && `<<LIFE-${life.hash()}>>`,
+        life: life && `<<LIFE-${life.hash}>>`,
         canvasContainer: canvasContainer && '<<CANVAS_CONTAINER>>',
         ...viewerStateRest
       },
