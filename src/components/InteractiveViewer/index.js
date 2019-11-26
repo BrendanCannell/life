@@ -2,6 +2,7 @@ import React, {useRef, useEffect} from 'react'
 import AnimatedCanvas from "../AnimatedCanvas"
 import "../../styles/fill.css"
 import * as L from 'lowlife'
+import RenderGridLines from "./render-grid-lines"
 
 let Mult = (n, v) => ({x: n * v.x, y: n * v.y})
   , Add  = (v1, v2) => ({x: v1.x + v2.x, y: v1.y + v2.y})
@@ -92,6 +93,7 @@ export default function InteractiveViewer(props) {
       , shouldRedraw = viewportChanged || imageDataChanged || lifeChanged
     if (imageData && shouldRedraw) {
       L.Render(life, {imageData, viewport, colors})
+      RenderGridLines({imageData, viewport})
       context.putImageData(imageData, 0, 0)
     }
     lastViewport = viewport
@@ -265,6 +267,6 @@ export default function InteractiveViewer(props) {
       , bottom = center.y + height / 2
       , v0 = {x: left,  y: top}
       , v1 = {x: right, y: bottom}
-    return {v0, v1, left, right, top, bottom, center, width, height}
+    return {v0, v1, left, right, top, bottom, center, width, height, scale}
   }
 }
