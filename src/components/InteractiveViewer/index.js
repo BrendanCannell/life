@@ -1,49 +1,70 @@
-import React, {useRef, useEffect} from 'react'
+import React, {useRef, useEffect, useCallback, useMemo} from 'react'
+import {createSelectorCreator, defaultMemoize} from 'reselect'
 import AnimatedCanvas from "../AnimatedCanvas"
 import "../../styles/fill.css"
 import * as L from 'lowlife'
+import RenderBorder from "./render-border"
 import RenderGridLines from "./render-grid-lines"
-
-let Mult = (n, v) => ({x: n * v.x, y: n * v.y})
-  , Add  = (v1, v2) => ({x: v1.x + v2.x, y: v1.y + v2.y})
-  , Subtract = (v1, v2) => Add(v1, Mult(-1, v2))
-  , Magnitude = ({x, y}) => Math.sqrt(Math.pow(x, 2) + Math.pow(y, 2))
-  , Midpoint = (v1, v2) => Mult(1/2, Add(v1, v2))
-  , Distance = (v1, v2) => Magnitude(Subtract(v1, v2))
+import RenderEdits from "./render-edits"
+import {Edits, Editing, Running} from "../../redux"
+import {Distance, Midpoint, Subtract} from "../../matrix"
 
 export default function InteractiveViewer(props) {
   let {colors, dragContainer, getState, mutators: m} = props
-    , canvasContainerRef = useRef(null)
-    , dragContainerRef = useRef(dragContainer || null)
-    , lastTouchesRef = useRef([])
-    , mouseDownRef = useRef(null)
-    , lastViewport = null
-    , lastImageData = null
-    , lastLifeHash = null
-    , mouseHandlers = {
-        mousemove: HandleMouseMove,
-        mouseup: HandleMouseUp,
-        mouseleave: CleanupMouseDown
-      }
-    useEffect(() => {
-      if (dragContainer) UpdateDragContainerRef(dragContainer)
-      return () => {if (dragContainer) UpdateDragContainerRef(null)}
-    })
+  let canvasContainerRef = useRef(null)
+  let dragContainerRef = useRef(dragContainer || null)
+  let lastTouchesRef = useRef([])
+  let mouseDownRef = useRef(null)
+  let mouseHandlers = {
+    mousemove: useCallback(HandleMouseMove, []),
+    mouseup: useCallback(HandleMouseUp, []),
+    mouseleave: useCallback(CleanupMouseDown, [])
+  }
+  let DrawFrame = useMemo(() => createDrawSelector(x => x, _DrawFrame), [])
+  let Viewport = useMemo(() => defaultMemoize(_Viewport), [])
+  // Add/remove mouse handlers on drag container
+  useEffect(() => {
+    if (dragContainer) UpdateDragContainerRef(dragContainer)
+    return () => {if (dragContainer) UpdateDragContainerRef(null)}
+  })
         
   return (
     <div
       className="fill"
-      onMouseDown={HandleMouseDown}
-      onWheel={HandleWheel}
-      ref={UpdateCanvasContainerRef}
+      onMouseDown={useCallback(HandleMouseDown, [])}
+      onWheel={useCallback(HandleWheel, [])}
+      ref={useCallback(UpdateCanvasContainerRef, [])}
     >
-      <AnimatedCanvas onFrame={HandleFrame} />
+      <AnimatedCanvas onFrame={useCallback(HandleFrame, [])} />
     </div>
   )
+
+  function HandleFrame({context, imageData}) {
+    let viewerState = getState()
+    let {life, scale} = viewerState
+    if (!scale) return
+    let viewport = CurrentViewport()
+    let edits = Edits(viewerState)
+    let editing = Editing(viewerState)
+    DrawFrame({colors, context, edits, editing, imageData, life, viewport})
+    if (Running(viewerState)) m.advanceOneFrame()
+  }
+
+  function _DrawFrame(opts) {
+    if (opts.imageData) {
+      L.Render(opts.life, opts)
+      RenderEdits(opts)
+      RenderGridLines(opts)
+      if (opts.editing) RenderBorder(opts)
+      opts.context.putImageData(opts.imageData, 0, 0)
+    }
+  }
 
   function UpdateCanvasContainerRef(canvasContainer) {
     m.updateCanvasContainer(canvasContainer)
     let {current} = canvasContainerRef
+    // Something about the way React does events required this manual handling to get pinch/zoom to work on mobile
+    // This should be revisited later
     if (current && canvasContainer !== current) {
       // Remove handlers on unmount
       let Remove = current.removeEventListener.bind(current)
@@ -80,26 +101,7 @@ export default function InteractiveViewer(props) {
   }
 
   function HandleKey(event) {
-    if (event.key === ' ') m.toggleRunning()
-  }
-
-  function HandleFrame({context, imageData}) {
-    let {life, running, scale} = getState()
-    if (!scale) return
-    let viewport = CurrentViewport()
-      , viewportChanged = JSON.stringify(viewport) !== JSON.stringify(lastViewport)
-      , imageDataChanged = imageData !== lastImageData
-      , lifeChanged = life.hash !== lastLifeHash
-      , shouldRedraw = viewportChanged || imageDataChanged || lifeChanged
-    if (imageData && shouldRedraw) {
-      L.Render(life, {imageData, viewport, colors})
-      RenderGridLines({imageData, viewport})
-      context.putImageData(imageData, 0, 0)
-    }
-    lastViewport = viewport
-    lastImageData = imageData
-    lastLifeHash = life.hash
-    if (running) m.advanceOneFrame()
+    if (event.key === ' ') m.togglePlaying()
   }
 
   // TODO debouncing
@@ -176,7 +178,7 @@ export default function InteractiveViewer(props) {
   }
   
   function HandleTap(touch) {
-    if (getState().editing)
+    if (Editing(getState()))
       m.toggleCell(touch.grid)
   }
 
@@ -234,7 +236,7 @@ export default function InteractiveViewer(props) {
   }
 
   function HandleClick(event) {
-    if (getState().editing) {
+    if (Editing(getState())) {
       let client = {x: event.clientX, y: event.clientY}
         , grid = GridCoordinates(client)
       m.toggleCell(grid)
@@ -258,15 +260,30 @@ export default function InteractiveViewer(props) {
 
   function CurrentViewport() {
     let {center, scale} = getState()
-      , canvasBounds = canvasContainerRef.current.getBoundingClientRect()
-      , width  = canvasBounds.width  / scale
-      , height = canvasBounds.height / scale
-      , left   = center.x - width  / 2
-      , right  = center.x + width  / 2
-      , top    = center.y - height / 2
-      , bottom = center.y + height / 2
-      , v0 = {x: left,  y: top}
-      , v1 = {x: right, y: bottom}
-    return {v0, v1, left, right, top, bottom, center, width, height, scale}
+    let {width, height} = canvasContainerRef.current.getBoundingClientRect()
+    return Viewport(center.x, center.y, scale, width, height)
   }
 }
+
+function _Viewport(centerX, centerY, scale, clientWidth, clientHeight) {
+  let width  = clientWidth  / scale
+    , height = clientHeight / scale
+    , left   = centerX - width  / 2
+    , right  = centerX + width  / 2
+    , top    = centerY - height / 2
+    , bottom = centerY + height / 2
+    , center = {x: centerX, y: centerY}
+    , v0 = {x: left,  y: top}
+    , v1 = {x: right, y: bottom}
+  return {v0, v1, topleft: v0, bottomright: v0, left, right, top, bottom, center, width, height, scale}
+}
+
+let createDrawSelector = createSelectorCreator(defaultMemoize, (prev, next) =>
+     prev.viewport  === next.viewport
+  && prev.context   === next.context
+  && prev.imageData === next.imageData
+  && prev.life      === next.life
+  && prev.edits     === next.edits
+  && prev.editing   === next.editing
+  && prev.colors    === next.colors
+)

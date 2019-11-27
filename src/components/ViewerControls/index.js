@@ -1,13 +1,12 @@
 import React from 'react'
 import {useSelector} from 'react-redux'
-import {ViewerState} from "../../redux"
-import {MdGpsFixed, MdPause, MdPlayArrow, MdSlowMotionVideo, MdAdd, MdRemove, MdModeEdit, MdMenu} from 'react-icons/md'
+import {Running, ViewerState} from "../../redux"
+import {MdGpsFixed, MdPause, MdPlayArrow, MdSlowMotionVideo, MdAdd, MdRemove, MdMenu} from 'react-icons/md'
 import StepForward from "../icons/StepForward"
 
 export default function Controls(props) {
   let {size, colors, mutators: m} = props
-    , running = useSelector(st => ViewerState(st).running)
-    , editing = useSelector(st => ViewerState(st).editing)
+    , running = useSelector(st => Running(ViewerState(st)))
     , showingSpeedControls = useSelector(st => ViewerState(st).showingSpeedControls)
     , ems = parseInt(size)
     , mainStyle = MainStyle(ems, colors)
@@ -32,7 +31,7 @@ export default function Controls(props) {
       
   return (
     <div style={{...mainStyle, display: 'flex'}} >
-      <PlayPause onClick={() => m.toggleRunning()} {...iconProps} />
+      <PlayPause onClick={() => m.togglePlaying()} {...iconProps} />
       <Spacer />
       <StepForward onClick={() => m.stepOnce()} {...iconProps} />
       <Spacer />
@@ -45,8 +44,6 @@ export default function Controls(props) {
           {speedControls}
         </div>
       </div>
-      <Spacer />
-      <MdModeEdit onClick={() => m.toggleEditing()} {...iconProps} {...editing && {style: {color: colors.controlsHighlight}}} />
       <Spacer />
       <MdGpsFixed onClick={() => m.fitToBounds()} />
       <Spacer />

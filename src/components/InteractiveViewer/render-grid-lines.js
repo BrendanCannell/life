@@ -1,39 +1,58 @@
-let MIN_SCALE = 5
-// let Shade = scale => Math.min(128, (scale - MIN_SCALE) * (128 / (2 * MIN_SCALE))) | 0
-let Shade = scale => 128 * (1 - Math.pow(MIN_SCALE / scale, 2))
+import {GridToImageX, GridToImageY, ImageXYToOffset} from "./coordinates"
+import {RGBAToInt32} from "./rgba-to-int32"
 
-export default function RenderGridLines({imageData, viewport}) {
-  if (viewport.scale < MIN_SCALE) return
-  let shade = Shade(viewport.scale)
-  for (let x = Math.ceil(viewport.left); x < viewport.right; x++) {
-    let imageX = GridToImageX(x, viewport)
-    let offsetLo = ImageXYToOffset(imageX,                0, imageData)
-    let offsetHi = ImageXYToOffset(imageX, imageData.height, imageData)
-    for (let offset = offsetLo; offset < offsetHi; offset += imageData.width * 4) {
-      imageData.data[offset    ] = shade
-      imageData.data[offset + 1] = shade
-      imageData.data[offset + 2] = shade
-      imageData.data[offset + 3] = shade
+export default function RenderGridLines({imageData, viewport, colors}) {
+  if (viewport.scale < FADE_MIN) return
+  let {width: imageWidth} = imageData
+  let {top, bottom, left, scale} = viewport
+  let data = new Int32Array(imageData.data.buffer)
+  let color = Color(scale, colors) | 0
+  let dead = RGBAToInt32(colors.dead) | 0
+  imageWidth |= 0;
+  top    = floor(top)    | 0
+  bottom = ceil (bottom) | 0
+  left   = ceil (left)   | 0
+  scale = scale * (window.devicePixelRatio || 1)
+  let leftImage = GridToImageX(left, viewport)
+  let leftOffset = ImageXYToOffset(leftImage, 0, viewport)
+  // For each (fully or partially) visible grid row...
+  for (let row = top; row < bottom; row++) {
+    // For each pixel in the topmost image line corresponding to the grid row,
+    let topLineY = GridToImageY(row, viewport)
+    let topLineOffset = ImageXYToOffset(0, topLineY | 0, imageData)
+    let offsetLo = max(imageWidth , topLineOffset             )
+    let offsetHi = min(data.length, topLineOffset + imageWidth)
+    for (let offset = offsetLo; offset < offsetHi; offset++){
+      if (data[offset] === dead && data[offset - imageWidth] === dead)
+        data[offset] = color}
+    // For all other image lines of the grid row...
+    let linesOffsetLo = max(1                       , topLineOffset + imageWidth        )
+    let linesOffsetHi = min(data.length - imageWidth, topLineOffset + imageWidth * scale)
+    for (let lineOffset = linesOffsetLo; lineOffset < linesOffsetHi; lineOffset += imageWidth) {
+      // For each cell in the row...
+      let cellsOffsetLo = lineOffset + leftOffset
+      let cellsOffsetHi = lineOffset + imageWidth
+      let leftNeighborIsUncolored = true
+      for (let offset = cellsOffsetLo; offset < cellsOffsetHi; offset += scale) {
+        let nearest = offset | 0
+        // Fill the cell's leftmost pixel if neither the cell nor its left neighbor are colored
+        let cellIsUncolored = data[nearest] === dead
+        if (leftNeighborIsUncolored && cellIsUncolored)
+          data[nearest] = color
+        leftNeighborIsUncolored = cellIsUncolored
+      }
     }
   }
-  for (let y = Math.ceil(viewport.top); y < viewport.bottom; y++) {
-    let imageY = GridToImageY(y, viewport)
-    let offsetLo = ImageXYToOffset(0,               imageY, imageData)
-    let offsetHi = ImageXYToOffset(imageData.width, imageY, imageData)
-    for (let offset = offsetLo; offset < offsetHi; offset++) {
-      imageData.data[offset] = shade
-    }
-  }
 }
 
-function ImageXYToOffset(x, y, imageData) {
-  return (x + y * imageData.width) * 4
+let FADE_MIN = 5
+let FADE_EXPONENT = 0.15
+
+function Color(scale, colors) {
+  let {lines, dead} = colors
+  let fade = pow(FADE_MIN / scale, FADE_EXPONENT)
+  let rgb = [...Array(3)].map((_, i) => (1 - fade) * lines[i] + fade * dead[i])
+  return RGBAToInt32([...rgb, 255])
 }
 
-function GridToImageX(x, viewport) {
-  return (x - viewport.left) * viewport.scale * (window.devicePixelRatio || 1) | 0
-}
-
-function GridToImageY(y, viewport) {
-  return (y - viewport.top ) * viewport.scale * (window.devicePixelRatio || 1) | 0
-}
+let {ceil, floor, max, min, pow} = Math

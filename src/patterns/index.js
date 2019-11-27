@@ -2,7 +2,7 @@ import period52GliderGun from "./period52glidergun.js"
 import turingMachine from "./turingmachine.js"
 import universalTuringMachine from "./universalturingmachine.js"
 
-let fromPlaintext = str => {
+let fromPlaintext = str => () => {
   let lines = [...str.match(/^[.O]+/mg)]
     .map((line, y) =>
       line
@@ -13,7 +13,7 @@ let fromPlaintext = str => {
   return [].concat(...lines)
 }
 
-let fromRLE = str => {
+let fromRLE = str => () => {
   let bodyMatch = str.toLowerCase().match(/^(?:#.*?\n)*(?:\s*x.*\n)([ob$\d\n\s]*)/i)
   if (!bodyMatch) throw Error("RLE body not found in string: " + str)
 
@@ -45,9 +45,22 @@ let fromRLE = str => {
 }
 
 export default [
+  {name: "Empty grid", locations: () => []},
+  {name: "Glider", locations: () => [[0,2], [1,2], [2,2], [2,1], [1,0]]},
+  {name: "R-pentomino", locations: () => [[1,0], [0,1], [1,1], [1,2], [2,2]]},
+  {name: "Diehard", locations: () => [[1,0], [5,0], [6,0], [7,0], [0,1], [1,1], [6,2]]},
+  {name: "Acorn", locations: () => [[0,0], [1,0], [4,0], [5,0], [6,0], [3,1], [1,2]]},
   {
-    name: "Empty grid",
-    locations: []
+    name: "Unix",
+    locations: fromPlaintext(
+`.OO
+.OO
+.
+.O
+O.O
+O..O..OO
+....O.OO
+..OO`)
   },
   {
     name: "Gosper glider gun",
@@ -121,25 +134,9 @@ O..O..........O..O
 ...O....O..O.....O
 ..O....O........O`)
   },
-  {name: "Glider", locations: [[0,2], [1,2], [2,2], [2,1], [1,0]]},
-  {name: "R-pentomino", locations: [[1,0], [0,1], [1,1], [1,2], [2,2]]},
-  {name: "Diehard", locations: [[1,0], [5,0], [6,0], [7,0], [0,1], [1,1], [6,2]]},
-  {name: "Acorn", locations: [[0,0], [1,0], [4,0], [5,0], [6,0], [3,1], [1,2]]},
   {
     name: "Period-52 glider gun",
     locations: fromRLE(period52GliderGun)
-  },
-  {
-    name: "Unix",
-    locations: fromPlaintext(
-`.OO
-.OO
-.
-.O
-O.O
-O..O..OO
-....O.OO
-..OO`)
   },
   {
     name: "Turing machine",
