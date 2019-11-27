@@ -53,10 +53,10 @@ export default function InteractiveViewer(props) {
   function _DrawFrame(opts) {
     if (opts.imageData) {
       L.Render(opts.life, opts)
+      opts.context.putImageData(opts.imageData, 0, 0)
       RenderEdits(opts)
       RenderGridLines(opts)
       if (opts.editing) RenderBorder(opts)
-      opts.context.putImageData(opts.imageData, 0, 0)
     }
   }
 

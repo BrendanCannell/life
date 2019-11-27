@@ -4,13 +4,13 @@ import "../../styles/fill.css"
 // A canvas with fixed dimensions and a `onFrame` function that will be called on each animation frame with the canvas's imageData and the frame's timestamp
 export default function AnimatedCanvas(props) {
   let {onFrame} = props
-    , dpr = window.devicePixelRatio || 1
     , pendingRequest = null
     , canvas = useMemo(() => document.createElement('canvas'), [])
     , context = canvas.getContext('2d')
     , imageData = null
     , currentLogicalWidth = null
     , currentLogicalHeight = null
+    , currentDevicePixelRatio = window.devicePixelRatio || 1
   canvas.style.width = '100%'
   canvas.style.height = '100%'
   
@@ -30,11 +30,16 @@ export default function AnimatedCanvas(props) {
   function animate(timestamp) {
     makeRequest(animate)
     let rect = canvas.getBoundingClientRect()
-    if (currentLogicalWidth !== rect.width || currentLogicalHeight !== rect.height) {
+    if (
+      currentLogicalWidth !== rect.width
+      || currentLogicalHeight !== rect.height
+      || currentDevicePixelRatio !== (window.devicePixelRatio || 1)
+      ) {
       currentLogicalWidth  = rect.width
       currentLogicalHeight = rect.height
-      let pixelWidth  = currentLogicalWidth  * dpr
-        , pixelHeight = currentLogicalHeight * dpr
+      currentDevicePixelRatio = window.devicePixelRatio || 1
+      let pixelWidth  = currentLogicalWidth  * currentDevicePixelRatio
+        , pixelHeight = currentLogicalHeight * currentDevicePixelRatio
       canvas.width  = pixelWidth
       canvas.height = pixelHeight
       imageData =

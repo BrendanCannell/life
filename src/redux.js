@@ -33,7 +33,7 @@ export let AdvanceFrame = st => {
 let LifeSelector = createSelectorCreator(defaultMemoize, (prev, next) => (prev && prev.hash) === (next && next.hash))
 export let Life = LifeSelector(vst => vst.life, x => x)
 
-export let Editing = vst => !vst.playing && !vst.suspended
+export let Editing = vst => !vst.playing
 
 export let Running = vst => vst.playing && !vst.suspended
 

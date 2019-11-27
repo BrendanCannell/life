@@ -11,8 +11,8 @@ let colors = {
   dead: [20, 20, 20, 255],
   lines: [192, 192, 192, 255],
   toggledOff: [192, 20, 96, 255],
-  toggledOn: [255, 192, 20, 255],
-  border: [255, 20, 20, 255],
+  toggledOn: [255, 128, 20, 255],
+  border: [255, 128, 20, 255],//[255, 20, 20, 255],
   controlsBackground:  '#424242',
   controlsForeground: 'white',
   controlsHighlight: 'red'
