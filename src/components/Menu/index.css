@@ -26,3 +26,42 @@ button {
   text-align: center;
   cursor: default;
 }
+
+.menu {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -100%;
+  width: 100%;
+  transition: left 200ms;
+}
+
+.menu-enter {
+  left: -100%;
+  transition: left 200ms;
+}
+
+.menu-enter-active {
+  left: 0;
+  transition: left 200ms;
+}
+
+.menu-enter-done {
+  left: 0;
+  transition: left 200ms;
+}
+
+.menu-exit {
+  left: 0;
+  transition: left 200ms;
+}
+
+.menu-enter-active {
+  left: -100%;
+  transition: left 200ms;
+}
+
+.menu-exit-done {
+  left: -100%;
+  transition: left 200ms;
+}

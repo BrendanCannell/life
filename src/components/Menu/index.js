@@ -1,4 +1,5 @@
 import React, {useMemo} from 'react'
+import {CSSTransition} from 'react-transition-group'
 import Patterns from "../../patterns/index.js"
 import "./index.css"
 import "../../styles/fill.css"
@@ -12,18 +13,20 @@ function Menu(props) {
   }), [colors])
 
   return (
-    <div className={'fill' + (!showingDrawer ? ' hide' : '')}>
-      <div
-        className='fill'
-        onClick={() => m.toggleShowingDrawer()}
-      />
-      <ul
-        className='pattern-list'
-        style={patternListStyle}
-      >{
-        Patterns.map(PatternButton)
-      }</ul>
-    </div>
+    <CSSTransition in={showingDrawer} timeout={200} classNames="menu">
+      <div className={'menu'}>
+        <div
+          className='fill'
+          onClick={() => m.toggleShowingDrawer()}
+        />
+        <ul
+          className='pattern-list'
+          style={patternListStyle}
+        >{
+          Patterns.map(PatternButton)
+        }</ul>
+      </div>
+    </CSSTransition>
   )
 
   function PatternButton(pattern, index) {
