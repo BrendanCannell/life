@@ -1,15 +1,24 @@
-import {GridToImageCell} from "./coordinates"
-import {} from "./rgba-to-int32"
+import {GridToImageX, GridToImageY} from "./coordinates"
 
-export default function RenderEdits({colors, context, edits, viewport}) {
-  for (var [location, state] of edits) {
-    let color = state ? colors.toggledOn : colors.toggledOff
-    context.fillStyle = `rgba(${color.join()})`
-    let {topleft, bottomright} = GridToImageCell(location, viewport)
-    let {x: xLo, y: yLo} = topleft
-    let {x: xHi, y: yHi} = bottomright
-    context.fillRect(xLo | 0, yLo | 0, ceil(xHi - xLo), ceil(yHi - yLo))
+export default function RenderEdits({colors, context: ctx, edits, viewport}) {
+  let edited = `rgba(${colors.toggledOn.join()})`
+  let background = `rgba(${colors.dead.join()})`
+  ctx.save()
+  ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height)
+  for (var [[xGrid, yGrid], alive] of edits) {
+    let xImageLo = GridToImageX(xGrid,     viewport) | 0
+    let xImageHi = GridToImageX(xGrid + 1, viewport) | 0
+    let yImageLo = GridToImageY(yGrid,     viewport) | 0
+    let yImageHi = GridToImageY(yGrid + 1, viewport) | 0
+    let width  = xImageHi - xImageLo
+    let height = yImageHi - yImageLo
+    let b = 2
+    ctx.fillStyle = edited
+    ctx.fillRect(xImageLo - b/2, yImageLo - b/2, width + b, height + b)
+    if (!alive) {
+      ctx.fillStyle = background
+      ctx.fillRect(xImageLo + b/2, yImageLo + b/2, width - b, height - b)
+    }
   }
+  ctx.restore()
 }
-
-let {ceil} = Math

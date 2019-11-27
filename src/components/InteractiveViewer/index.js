@@ -2,15 +2,16 @@ import React, {useRef, useEffect, useCallback, useMemo} from 'react'
 import {createSelectorCreator, defaultMemoize} from 'reselect'
 import AnimatedCanvas from "../AnimatedCanvas"
 import "../../styles/fill.css"
+import "./index.css"
 import * as L from 'lowlife'
-import RenderBorder from "./render-border"
-import RenderGridLines from "./render-grid-lines"
+import RenderBackground from "./render-grid-lines"
 import RenderEdits from "./render-edits"
 import {Edits, Editing, Running} from "../../redux"
 import {Distance, Midpoint, Subtract} from "../../matrix"
 
 export default function InteractiveViewer(props) {
-  let {colors, dragContainer, getState, mutators: m} = props
+  let {colors, dragContainer, editing, getState, mutators: m} = props
+  let lifeRenderColors = useMemo(() => ({alive: colors.alive, dead: [0,0,0,0]}), [colors.alive])
   let canvasContainerRef = useRef(null)
   let dragContainerRef = useRef(dragContainer || null)
   let lastTouchesRef = useRef([])
@@ -20,8 +21,16 @@ export default function InteractiveViewer(props) {
     mouseup: useCallback(HandleMouseUp, []),
     mouseleave: useCallback(CleanupMouseDown, [])
   }
-  let DrawFrame = useMemo(() => createDrawSelector(x => x, _DrawFrame), [])
   let Viewport = useMemo(() => defaultMemoize(_Viewport), [])
+  let CurrentViewport = useCallback(_CurrentViewport, [])
+  let MemoizedRenderBackground = useMemo(() => MemoizeRenderBackground(RenderBackground), [])
+  let HandleBackgroundFrame    = useCallback(_HandleBackgroundFrame, [MemoizedRenderBackground])
+  let RenderCells              = useCallback(_RenderCells, [lifeRenderColors])
+  let MemoizedRenderCells      = useMemo(() => MemoizeRenderCells(RenderCells), [RenderCells])
+  let HandleCellsFrame         = useCallback(_HandleCellsFrame, [])
+  let MemoizedRenderEdits      = useMemo(() => MemoizeRenderEdits(RenderEdits), [])
+  let HandleEditsFrame         = useCallback(_HandleEditsFrame, [])
+
   // Add/remove mouse handlers on drag container
   useEffect(() => {
     if (dragContainer) UpdateDragContainerRef(dragContainer)
@@ -29,41 +38,55 @@ export default function InteractiveViewer(props) {
   })
         
   return (
-    <div
-      className="fill"
-      onMouseDown={useCallback(HandleMouseDown, [])}
-      onWheel={useCallback(HandleWheel, [])}
-      ref={useCallback(UpdateCanvasContainerRef, [])}
-    >
-      <AnimatedCanvas onFrame={useCallback(HandleFrame, [])} />
+    <div className={editing ? "fill viewer editing" : "fill viewer"}>
+      <div
+        className={"fill"}
+        onMouseDown={useCallback(HandleMouseDown, [])}
+        onWheel={useCallback(HandleWheel, [])}
+        ref={useCallback(UpdateCanvasContainerRef, [])}
+      >
+        <AnimatedCanvas onFrame={HandleBackgroundFrame} />
+        <AnimatedCanvas onFrame={HandleCellsFrame} />
+        <AnimatedCanvas onFrame={HandleEditsFrame} />
+      </div>
     </div>
   )
-
-  function HandleFrame({context, imageData}) {
-    let viewerState = getState()
-    let {life, scale} = viewerState
-    if (!scale) return
-    let viewport = CurrentViewport()
-    let edits = Edits(viewerState)
-    let editing = Editing(viewerState)
-    DrawFrame({colors, context, edits, editing, imageData, life, viewport})
-    if (Running(viewerState)) m.advanceOneFrame()
+  
+  function _HandleBackgroundFrame(opts) {
+    opts.viewport = CurrentViewport()
+    opts.colors = colors
+    MemoizedRenderBackground(opts)
   }
 
-  function _DrawFrame(opts) {
+  function _RenderCells(opts) {
     if (opts.imageData) {
-      L.Render(opts.life, opts)
+      L.Render(opts.life, {...opts, colors: lifeRenderColors})
       opts.context.putImageData(opts.imageData, 0, 0)
-      RenderEdits(opts)
-      RenderGridLines(opts)
-      if (opts.editing) RenderBorder(opts)
     }
+  }
+
+  function _HandleCellsFrame(opts) {
+    let vst = getState()
+    let {life, scale} = vst
+    if (!scale) return
+    opts.life = life
+    opts.viewport = CurrentViewport()
+    MemoizedRenderCells(opts)
+    if (Running(vst)) m.advanceOneFrame()
+  }
+
+  function _HandleEditsFrame(opts) {
+    let viewerState = getState()
+    opts.colors = colors
+    opts.edits = Edits(viewerState)
+    opts.viewport = CurrentViewport()
+    MemoizedRenderEdits(opts)
   }
 
   function UpdateCanvasContainerRef(canvasContainer) {
     m.updateCanvasContainer(canvasContainer)
     let {current} = canvasContainerRef
-    // Something about the way React does events required this manual handling to get pinch/zoom to work on mobile
+    // Something about the way React does events required this manual handling to get pinch/zoom to work on mobile Safari
     // This should be revisited later
     if (current && canvasContainer !== current) {
       // Remove handlers on unmount
@@ -258,7 +281,7 @@ export default function InteractiveViewer(props) {
   }
 
 
-  function CurrentViewport() {
+  function _CurrentViewport() {
     let {center, scale} = getState()
     let {width, height} = canvasContainerRef.current.getBoundingClientRect()
     return Viewport(center.x, center.y, scale, width, height)
@@ -278,11 +301,27 @@ function _Viewport(centerX, centerY, scale, clientWidth, clientHeight) {
   return {v0, v1, topleft: v0, bottomright: v0, left, right, top, bottom, center, width, height, scale}
 }
 
-let createDrawSelector = createSelectorCreator(defaultMemoize, (prev, next) =>
-     prev.viewport  === next.viewport
+function MemoizeWith(Equal) {
+  let Memoizer = createSelectorCreator(defaultMemoize, Equal)
+  return Fn => Memoizer(Identity, Fn)
+}
+let Identity = x => x
+
+let MemoizeRenderBackground = MemoizeWith((prev, next) =>
+  prev.viewport === next.viewport
+  && prev.context === next.context
+  && prev.colors  === next.colors
+)
+let MemoizeRenderCells = MemoizeWith((prev, next) =>
+  prev.viewport  === next.viewport
   && prev.context   === next.context
   && prev.imageData === next.imageData
   && prev.life      === next.life
+  && prev.colors    === next.colors
+)
+let MemoizeRenderEdits = MemoizeWith((prev, next) =>
+  prev.viewport  === next.viewport
+  && prev.context   === next.context
   && prev.edits     === next.edits
   && prev.editing   === next.editing
   && prev.colors    === next.colors

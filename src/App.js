@@ -1,6 +1,6 @@
-import React, {useMemo} from 'react'
+import React, {useCallback, useMemo} from 'react'
 import {useSelector, useDispatch, useStore} from 'react-redux'
-import {setLife, toggleShowingDrawer, ViewerState, advanceOneFrame, fitToBounds, initializeBounds, pan, setScale, speedDown, speedUp, stepOnce, toggleCell, togglePlaying, toggleShowingSpeedControls, updateCanvasContainer, zoom} from './redux'
+import {Editing, setLife, toggleShowingDrawer, ViewerState, advanceOneFrame, fitToBounds, initializeBounds, pan, setScale, speedDown, speedUp, stepOnce, toggleCell, togglePlaying, toggleShowingSpeedControls, updateCanvasContainer, zoom} from './redux'
 import InteractiveViewer from "./components/InteractiveViewer"
 import ViewerControls from "./components/ViewerControls"
 import Menu from "./components/Menu"
@@ -12,7 +12,7 @@ let colors = {
   lines: [192, 192, 192, 255],
   toggledOff: [192, 20, 96, 255],
   toggledOn: [255, 128, 20, 255],
-  border: [255, 128, 20, 255],//[255, 20, 20, 255],
+  border: [255, 128, 20, 255],
   controlsBackground:  '#424242',
   controlsForeground: 'white',
   controlsHighlight: 'red'
@@ -23,6 +23,7 @@ let viewerActionCreators = {advanceOneFrame, fitToBounds, initializeBounds, pan,
 function App() {
   let dispatch = useDispatch()
     , showingDrawer = useSelector(st => st.showingDrawer)
+    , editing = useSelector(st => Editing(ViewerState(st)))
     , store = useStore()
     , mutators = useMemo(
         () => mapObj(actionCreator => payload => dispatch(actionCreator(payload)), viewerActionCreators),
@@ -33,8 +34,8 @@ function App() {
       {fps}
       <InteractiveViewer
         dragContainer={window}
-        getState={() => ViewerState(store.getState())}
-        {...{colors, mutators}}
+        getState={useCallback(() => ViewerState(store.getState()), [store])}
+        {...{editing, colors, mutators}}
       />
       <Controls />
       <Menu {...{colors, mutators, showingDrawer}} />

@@ -1,0 +1,8 @@
+.viewer {
+  box-sizing: border-box;
+  border: 2px rgba(0, 0, 0, 0) solid;
+}
+.viewer.editing {
+  box-sizing: border-box;
+  border: 2px rgba(255, 128, 20, 255) solid;
+}
