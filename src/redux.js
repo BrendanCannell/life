@@ -1,13 +1,8 @@
-import {configureStore, createAction, createReducer} from 'redux-starter-kit'
+import {configureStore, createAction, createReducer, createSelector} from 'redux-starter-kit'
+import {createSelectorCreator, defaultMemoize} from 'reselect'
 import thunk from 'redux-thunk'
 import * as L from 'lowlife'
-
-let Mult = (n, v) => ({x: n * v.x, y: n * v.y})
-  , Add  = (v1, v2) => ({x: v1.x + v2.x, y: v1.y + v2.y})
-  , Subtract = (v1, v2) => Add(v1, Mult(-1, v2))
-  // , Magnitude = ({x, y}) => Math.sqrt(Math.pow(x, 2) + Math.pow(y, 2))
-  // , Midpoint = (v1, v2) => Mult(1/2, Add(v1, v2))
-  // , Distance = (v1, v2) => Magnitude(Subtract(v1, v2))
+import {Mult, Add, Subtract} from "./matrix"
 
 let initialState = {
   viewerState: {
@@ -18,9 +13,9 @@ let initialState = {
     stepsPerFrame: 1/4,
     stepsPending: 0,
     translationPerStep: {x: 0, y: 0},
-    running: false,
-    suspended: true,
-    editing: true,
+    playing: false,
+    suspended: false,
+    editHistory: [],
     showingSpeedControls: false,
   },
   showingDrawer: false,
@@ -35,6 +30,13 @@ export let AdvanceFrame = st => {
   st.stepsPending -= stepsThisFrame
 }
 
+let LifeSelector = createSelectorCreator(defaultMemoize, (prev, next) => (prev && prev.hash) === (next && next.hash))
+export let Life = LifeSelector(vst => vst.life, x => x)
+
+export let Editing = vst => !vst.playing && !vst.suspended
+
+export let Running = vst => vst.playing && !vst.suspended
+
 export let
     advanceOneFrame = createAction('advanceOneFrame')
   , fitToBounds = createAction('fitToBounds')
@@ -46,8 +48,8 @@ export let
   , speedUp = createAction('speedUp')
   , stepOnce = createAction('stepOnce')
   , toggleCell = createAction('toggleCell')
-  , toggleEditing = createAction('toggleEditing')
-  , toggleRunning = createAction('toggleRunning')
+  // , toggleEditing = createAction('toggleEditing')
+  , togglePlaying = createAction('togglePlaying')
   , toggleShowingDrawer = createAction('toggleShowingDrawer')
   , toggleShowingSpeedControls = createAction('toggleShowingSpeedControls')
   , updateCanvasContainer = createAction('updateCanvasContainer')
@@ -56,7 +58,6 @@ export let
 let reducer = createReducer(initialState, {
   [advanceOneFrame]: (st) => {
     let vst = ViewerState(st)
-    if (!vst.running || vst.editing) return
     vst.stepsPending += vst.stepsPerFrame
     Step(vst, vst.stepsPending)
     let stepsThisFrame = Math.floor(vst.stepsPending)
@@ -70,42 +71,41 @@ let reducer = createReducer(initialState, {
     FitToBounds(ViewerState(st))
   },
   [setScale]: (st, {payload: scale}) => {ViewerState(st).scale = scale},
-  [setLife]: (st, {payload: locations}) => {
+  [setLife]: (st, {payload: Locations}) => {
     let vst = ViewerState(st)
-    vst.life = L.FromLiving(locations)
-    vst.running = false
-    vst.suspended = false
-    vst.editing = false
+    vst.life = L.FromLiving(Locations())
+    vst.playing = false
+    vst.editHistory = []
+    vst.showingSpeedControls = false
     if (vst.canvasContainer) {
       FitToBounds(vst)
     }
   },
   [speedDown]: (st) => {ViewerState(st).stepsPerFrame /= Math.PI/2},
   [speedUp]:   (st) => {ViewerState(st).stepsPerFrame *= Math.PI/2},
-  [stepOnce]: (st) => Step(ViewerState(st), 1),
+  [stepOnce]: (st) => {
+    let vst = ViewerState(st)
+    FlushEditHistory(vst)
+    Step(vst, 1)
+    vst.showingSpeedControls = false
+  },
   [toggleCell]: (st, {payload: {x, y}}) => {
     let vst = ViewerState(st)
       , cellLocation = [x, y].map(Math.floor)
-      , cellState = L.Has(vst.life, cellLocation)
-    vst.life = L.Set(vst.life, cellLocation, !cellState, {canFree: true})
+    vst.editHistory.push(cellLocation)
+    vst.showingSpeedControls = false
   },
-  [toggleEditing]: (st) => {
+  [togglePlaying]: (st) => {
     let vst = ViewerState(st)
-    vst.editing = !vst.editing
-    if (vst.editing) {
-      vst.showingSpeedControls = false
-    }
-    UpdateSuspension(st)
-  },
-  [toggleRunning]: (st) => {
-    let vst = ViewerState(st)
-    vst.running = !vst.running
-    vst.editing = false
-    vst.suspended = false
+    vst.playing = !vst.playing
+    FlushEditHistory(vst)
+    vst.showingSpeedControls = false
   },
   [toggleShowingDrawer]: (st) => {
     st.showingDrawer = !st.showingDrawer
-    UpdateSuspension(st)
+    let vst = ViewerState(st)
+    vst.suspended = st.showingDrawer
+    vst.showingSpeedControls = false
   },
   [toggleShowingSpeedControls]: (st) => {
     let vst = ViewerState(st)
@@ -113,10 +113,11 @@ let reducer = createReducer(initialState, {
   },
   [updateCanvasContainer]: (st, {payload: canvasContainer}) => {
     let vst = ViewerState(st)
-    let oldCanvasContainer = vst.canvasContainer
     vst.canvasContainer = canvasContainer
-    if (canvasContainer && !oldCanvasContainer) {
+    if (canvasContainer && !vst.scale) {
       FitToBounds(vst)
+      if (!vst.scale)
+        DefaultBounds(vst)
     }
   },
   [zoom]: (st, {payload: {fixedPoint, scaleFactor}}) => {
@@ -131,51 +132,64 @@ let reducer = createReducer(initialState, {
 function Step(vst, count) {
   vst.center = Add(vst.center, Mult(count, vst.translationPerStep))
   for (count = Math.floor(count); count > 0; count--) {
-    vst.life = L.Step(vst.life, {canFree: true})
-  }
-}
-
-function UpdateSuspension(st) {
-  let vst = ViewerState(st)
-  if (vst.suspended && !vst.editing && ! st.showingDrawer) {
-    vst.running = true;
-    vst.suspended = false;
-  }
-  else if (vst.running && (vst.editing || st.showingDrawer)) {
-    vst.running = false;
-    vst.suspended = true;
+    vst.life = L.Next(vst.life, {canFree: true})
   }
 }
 
 function FitToBounds(vst) {
   let clientBounds = vst.canvasContainer.getBoundingClientRect()
-    , gridBounds = L.BoundingRect(vst.life) || {}
-    , width  = Math.max((gridBounds.width  || 0) * 1.2, 10)
-    , height = Math.max((gridBounds.height || 0) * 1.2, 10)
-    , scaleX = clientBounds.width  / width
-    , scaleY = clientBounds.height / height
-  vst.center = gridBounds.center || {x: 0, y: 0}
+  let lifeBounds = L.BoundingRect(vst.life)
+  if (!lifeBounds && Edits(vst).length === 0) return
+  let {left = Infinity, right = -Infinity, top = Infinity, bottom = -Infinity} = lifeBounds || {}
+  for (var [[x, y]] of Edits(vst)) {
+    left = Math.min(left, x)
+    right = Math.max(right, x + 1)
+    top = Math.min(top, y)
+    bottom = Math.max(bottom, y + 1)
+  }
+  let width  = Math.max((right - left) * 1.2, 10)
+  let height = Math.max((bottom - top) * 1.2, 10)
+  let scaleX = clientBounds.width  / width
+  let scaleY = clientBounds.height / height
+  vst.center = {x: (left + right) / 2, y: (top + bottom) / 2}
   vst.scale = Math.min(scaleX, scaleY)
 }
 
+function DefaultBounds(vst) {
+  let clientBounds = vst.canvasContainer.getBoundingClientRect()
+  let width  = 10
+  let height = 10
+  let scaleX = clientBounds.width  / width
+  let scaleY = clientBounds.height / height
+  vst.center = {x: 0, y: 0}
+  vst.scale = Math.min(scaleX, scaleY)
+}
 
-// const {actions, reducer: todosReducer} = createSlice({
-//   slice: "todos",
-//   initialState,
-//   reducers: {
-//     addTodo(st, action) {
-//       // You can "mutate" the state in a reducer, thanks to Immer
-//       st.push(action.payload)
-//     },
-//     toggleTodo(st, action) {
-//       const todo = st.find(todo => todo.id === action.payload)
-//       todo.complete = !todo.complete
-//     },
-//     deleteTodo(st, action) {
-//       return st.filter((todo) => todo.id !== action.payload)
-//     }
-//   }
-// })
+export let Edits = createSelector(
+  [vst => vst.life, vst => vst.editHistory],
+  (life, editHistory) => {
+    let toggleCounts = new Map()
+    for (var location of editHistory) {
+      let str = location.join()
+      let toggleCount = toggleCounts.get(str) || 0
+      toggleCounts.set(str, toggleCount + 1)
+    }
+    let updates = []
+    for (var [locationStr, toggleCount] of toggleCounts)
+      if (toggleCount % 2 === 1) {
+        let location = locationStr.split(',').map(n => parseInt(n))
+        let currentState = L.Has(life, location)
+        updates.push([location, !currentState])
+      }
+    return updates
+  })
+
+function FlushEditHistory(vst) {
+  if (vst.editHistory.length > 0) {
+    vst.life = L.SetMany(vst.life, Edits(vst), {canFree: true})
+    vst.editHistory = []
+  }
+}
 
 let actionSanitizer = action =>
     action.type === setLife.toString()               ? {...action, payload: '<<LOCATIONS_ARRAY>>'}

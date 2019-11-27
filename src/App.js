@@ -1,22 +1,24 @@
 import React, {useMemo} from 'react'
 import {useSelector, useDispatch, useStore} from 'react-redux'
-import {setLife, toggleShowingDrawer, ViewerState, advanceOneFrame, fitToBounds, initializeBounds, pan, setScale, speedDown, speedUp, stepOnce, toggleCell, toggleEditing, toggleRunning, toggleShowingSpeedControls, updateCanvasContainer, zoom} from './redux'
+import {setLife, toggleShowingDrawer, ViewerState, advanceOneFrame, fitToBounds, initializeBounds, pan, setScale, speedDown, speedUp, stepOnce, toggleCell, togglePlaying, toggleShowingSpeedControls, updateCanvasContainer, zoom} from './redux'
 import InteractiveViewer from "./components/InteractiveViewer"
 import ViewerControls from "./components/ViewerControls"
 import Menu from "./components/Menu"
 import FPS from "./components/FPS"
-// import SinglePatterns from "./patterns/index.js"
-// let Patterns = [].concat(SinglePatterns, SinglePatterns)
 
 let colors = {
-  alive: [0, 255, 0, 255],
+  alive: [20, 255, 20, 255],
   dead: [20, 20, 20, 255],
+  lines: [192, 192, 192, 255],
+  toggledOff: [192, 20, 96, 255],
+  toggledOn: [255, 192, 20, 255],
+  border: [255, 20, 20, 255],
   controlsBackground:  '#424242',
   controlsForeground: 'white',
   controlsHighlight: 'red'
 }
 colors.background = `rgba(${colors.dead.join()})`
-let viewerActionCreators = {advanceOneFrame, fitToBounds, initializeBounds, pan, setLife, setScale, speedDown, speedUp, stepOnce, toggleCell, toggleEditing, toggleRunning, toggleShowingDrawer, toggleShowingSpeedControls, updateCanvasContainer, zoom}
+let viewerActionCreators = {advanceOneFrame, fitToBounds, initializeBounds, pan, setLife, setScale, speedDown, speedUp, stepOnce, toggleCell, togglePlaying, toggleShowingDrawer, toggleShowingSpeedControls, updateCanvasContainer, zoom}
 
 function App() {
   let dispatch = useDispatch()
