@@ -2,6 +2,7 @@ import {configureStore, createAction, createReducer, createSelector} from 'redux
 import {createSelectorCreator, defaultMemoize} from 'reselect'
 import thunk from 'redux-thunk'
 import * as L from 'lowlife'
+import {FromRle} from "./parse"
 import {Mult, Add, Subtract} from "./matrix"
 
 let initialState = {
@@ -41,6 +42,7 @@ export let
     advanceOneFrame = createAction('advanceOneFrame')
   , fitToBounds = createAction('fitToBounds')
   , initializeBounds = createAction('initializeBounds')
+  // , loadPattern = createAction('loadPattern')
   , pan = createAction('pan')
   , setScale = createAction('setScale')
   , setLife = createAction('setLife')
@@ -48,7 +50,6 @@ export let
   , speedUp = createAction('speedUp')
   , stepOnce = createAction('stepOnce')
   , toggleCell = createAction('toggleCell')
-  // , toggleEditing = createAction('toggleEditing')
   , togglePlaying = createAction('togglePlaying')
   , toggleShowingDrawer = createAction('toggleShowingDrawer')
   , toggleShowingSpeedControls = createAction('toggleShowingSpeedControls')
@@ -63,23 +64,27 @@ let reducer = createReducer(initialState, {
     let stepsThisFrame = Math.floor(vst.stepsPending)
     vst.stepsPending -= stepsThisFrame
   },
+  [fitToBounds]: (st) => {
+    FitToBounds(ViewerState(st))
+  },
   [pan]: (st, {payload: movement}) => {
     let vst = ViewerState(st)
     vst.center = Add(movement, vst.center)
   },
-  [fitToBounds]: (st) => {
-    FitToBounds(ViewerState(st))
-  },
   [setScale]: (st, {payload: scale}) => {ViewerState(st).scale = scale},
-  [setLife]: (st, {payload: Locations}) => {
+  [setLife]: (st, {payload: {rle}}) => {
     let vst = ViewerState(st)
-    vst.life = L.FromLiving(Locations())
-    vst.playing = false
-    vst.editHistory = []
-    vst.showingSpeedControls = false
-    if (vst.canvasContainer) {
-      FitToBounds(vst)
-    }
+    try {
+      vst.life = L.FromLiving(FromRle(rle))
+      vst.playing = false
+      vst.suspended = false
+      vst.editHistory = []
+      vst.showingSpeedControls = false
+      if (vst.canvasContainer) {
+        FitToBounds(vst)
+      }
+      st.showingDrawer = false
+    } catch (e) {console.error(e)}
   },
   [speedDown]: (st) => {ViewerState(st).stepsPerFrame /= Math.PI/2},
   [speedUp]:   (st) => {ViewerState(st).stepsPerFrame *= Math.PI/2},

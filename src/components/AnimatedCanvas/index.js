@@ -5,7 +5,7 @@ import "../../styles/fill.css"
 export default function AnimatedCanvas(props) {
   let {onFrame} = props
     , pendingRequest = null
-    , canvas = useMemo(() => console.log('create canvas') || document.createElement('canvas'), [])
+    , canvas = useMemo(() => document.createElement('canvas'), [])
     , context = useMemo(() => canvas.getContext('2d'), [canvas])
     , imageData = null
     , currentLogicalWidth = null

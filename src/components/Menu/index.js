@@ -1,6 +1,6 @@
 import React, {useMemo} from 'react'
 import {CSSTransition} from 'react-transition-group'
-import Patterns from "../../patterns/index.js"
+import Patterns from "../../patterns.json"
 import "./index.css"
 import "../../styles/fill.css"
 
@@ -29,22 +29,34 @@ function Menu(props) {
     </CSSTransition>
   )
 
-  function PatternButton(pattern, index) {
+  function PatternButton(pattern) {
+    let [name, filename] = pattern
     return (
-      <li key={index}>
+      <li key={filename}>
         <button
           onClick={SetPattern}
-          key={index}
+          key={filename}
           style={patternButtonStyle}
         >
-          {pattern.name.toUpperCase()}
+          {name}
         </button>
       </li>
     )
 
-    function SetPattern() {
-      m.setLife(pattern.locations);
-      m.toggleShowingDrawer()
+    async function SetPattern() {
+      try {
+        let utf8Decoder = new TextDecoder("utf-8");
+        let res = await fetch("patterns/" + filename)
+        let reader = res.body.getReader()
+        var rle = ""
+        while (true) {
+          let {value, done} = await reader.read()
+          rle += utf8Decoder.decode(value)
+          if (done) break
+        }
+        rle = rle.replace(/\r?\n|\r/, '\n')
+        m.setLife({rle})
+      } catch (e) {console.log(e)}
     }
   }
 }
