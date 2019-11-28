@@ -1,42 +1,59 @@
-import React, {useMemo} from 'react'
+import React, {useMemo, useState} from 'react'
 import {CSSTransition} from 'react-transition-group'
-import Patterns from "../../patterns.json"
+import _Patterns from "../../patterns.json"
 import "./index.css"
 import "../../styles/fill.css"
 
+let Normalize = str => str.toLowerCase().replace(/[\W_]/g, '')
+
+let Patterns = _Patterns.map(([name, filename]) => ({
+  name,
+  normalizedName: Normalize(name),
+  filename,
+}))
+
 function Menu(props) {
   let {colors, mutators: m, showingDrawer} = props
-  let patternListStyle = useMemo(() => ({backgroundColor: colors.controlsBackground}), [colors])
-  let patternButtonStyle = useMemo(() => ({
+  let [searchTerm, SetSearchTerm] = useState("")
+  let menuColors = useMemo(() => ({backgroundColor: colors.controlsBackground}), [colors])
+  let menuButtonColors = useMemo(() => ({
     color: colors.controlsBackground,
     backgroundColor: colors.controlsForeground
   }), [colors])
 
   return (
-    <CSSTransition in={showingDrawer} timeout={200} classNames="menu">
-      <div className={'menu'}>
+    <CSSTransition in={showingDrawer} timeout={200} classNames="menu-container">
+      <div className="menu-container">
         <div
-          className='fill'
+          className="empty-space"
           onClick={() => m.toggleShowingDrawer()}
         />
-        <ul
-          className='pattern-list'
-          style={patternListStyle}
-        >{
-          Patterns.map(PatternButton)
-        }</ul>
+        <div className="menu" style={menuColors}>
+          <input
+            className="search"
+            type="text"
+            onChange={e => SetSearchTerm(e.target.value)}
+            value={searchTerm}
+            placeholder="Search..."
+          />
+          <ul >{
+            Patterns
+            .filter(p => p.normalizedName.includes(Normalize(searchTerm)))
+            .map(PatternButton)
+          }</ul>
+        </div>
       </div>
     </CSSTransition>
   )
 
   function PatternButton(pattern) {
-    let [name, filename] = pattern
+    let {name, filename} = pattern
     return (
       <li key={filename}>
         <button
           onClick={SetPattern}
           key={filename}
-          style={patternButtonStyle}
+          style={menuButtonColors}
         >
           {name}
         </button>
@@ -56,6 +73,7 @@ function Menu(props) {
         }
         rle = rle.replace(/\r?\n|\r/, '\n')
         m.setLife({rle})
+        SetSearchTerm("")
       } catch (e) {console.log(e)}
     }
   }

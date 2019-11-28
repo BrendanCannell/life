@@ -1,13 +1,24 @@
+input.search {
+  position: absolute;
+  left: 0.6em;
+  right: 0.6em;
+  top: 0.2em;
+  font-size: 2em;
+  font-family: "Roboto", Arial, sans-serif;
+  text-align: center;
+}
+
 ul {
-  transition: width 0.5s;
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 5em;
+  bottom: 0;
   overflow-y: scroll;
+  -webkit-overflow-scrolling: touch;
   scrollbar-width: none; /* Firefox */
   -ms-overflow-style: none;  /* Internet Explorer 10+ */
   overflow-x: hidden;
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
   padding: 0.3em;
 }
 ul::-webkit-scrollbar { /* WebKit */
@@ -22,8 +33,9 @@ li {
 
 button {
   width: calc(100% - 1.2em);
+  border-radius: 0.1em;
   margin: 0.2em 0.6em;
-  padding: 0.3em;
+  padding-bottom: 0.3em;
   font-size: 2em;
   font-family: "Roboto", Arial, sans-serif;
   text-align: center;
@@ -34,37 +46,53 @@ button {
   position: absolute;
   top: 0;
   bottom: 0;
+  left: 0;
+  right: 15%;
+}
+
+.empty-space {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: 0;
+  width: 15%;
+}
+
+.menu-container {
+  position: absolute;
+  top: 0;
+  bottom: 0;
   left: -100%;
   width: 100%;
   transition: left 200ms;
 }
 
-.menu-enter {
+.menu-container-container-enter {
   left: -100%;
   transition: left 200ms;
 }
 
-.menu-enter-active {
+.menu-container-enter-active {
   left: 0;
   transition: left 200ms;
 }
 
-.menu-enter-done {
+.menu-container-enter-done {
   left: 0;
   transition: left 200ms;
 }
 
-.menu-exit {
+.menu-container-exit {
   left: 0;
   transition: left 200ms;
 }
 
-.menu-enter-active {
+.menu-container-enter-active {
   left: -100%;
   transition: left 200ms;
 }
 
-.menu-exit-done {
+.menu-container-exit-done {
   left: -100%;
   transition: left 200ms;
 }

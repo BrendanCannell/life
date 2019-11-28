@@ -63,10 +63,3 @@ html, body {
 .hide {
   display: none;
 }
-
-.pattern-list {
-  width: 85%;
-}
-.pattern-list.hide {
-  width: 0%;
-}
